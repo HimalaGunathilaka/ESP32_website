@@ -38,6 +38,27 @@
         <div class="emoji">🎯</div>
         <h1>Focus Mode Activated!</h1>
         <p>Stay focused on what matters</p>
+        <h2>Focused time:</h2>
+
+        <div id="timer" style="font-size:2em; margin-top:10px;">00:00:00</div>
     </div>
+    <script>
+    function formatTime(seconds) {
+        const h = Math.floor(seconds / 3600).toString().padStart(2, '0');
+        const m = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0');
+        const s = (seconds % 60).toString().padStart(2, '0');
+        return `${h}:${m}:${s}`;
+    }
+
+    function updateTimer() {
+        chrome.runtime.sendMessage({ type: "GET_ELAPSED_TIME" }, (response) => {
+            if (response && typeof response.elapsed === 'number') {
+                document.getElementById('timer').textContent = formatTime(response.elapsed);
+            }
+        });
+    }
+    setInterval(updateTimer, 1000);
+    updateTimer();
+    </script>
 </body>
 </html>

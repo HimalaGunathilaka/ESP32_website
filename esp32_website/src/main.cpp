@@ -1,14 +1,11 @@
 #include <Arduino.h>
 #include <WiFi.h>
 #include <ArduinoWebsockets.h>
+#include "wifi_manager.h"
+#include "display.h"
+#include "led.h"
 
 using namespace websockets;
-
-// -------------------------
-// Wi-Fi Configuration
-// -------------------------
-const char *SSID = "Himala-A12";
-const char *PASSWORD = "reko2115";
 
 // -------------------------
 // WebSocket Server
@@ -19,28 +16,15 @@ WebsocketsClient *activeClient = nullptr;
 // -------------------------
 // Button Configuration
 // -------------------------
-const int BUTTON_PIN = 18;
+#define BUTTON_PIN  18
+#define LED_INDICATOR 19
 volatile bool buttonPressed = false;
-int SWITCH = 0;
+int count = 0;
+
 
 void IRAM_ATTR handleButtonInterrupt()
 {
   buttonPressed = true;
-}
-
-// -------------------------
-// Wi-Fi Initialization Function
-// -------------------------
-void wifiInitialize()
-{
-  WiFi.begin(SSID, PASSWORD);
-  Serial.print("Connecting to WiFi");
-  while (WiFi.status() != WL_CONNECTED)
-  {
-    delay(500);
-    Serial.print(".");
-  }
-  Serial.println("\nConnected! IP: " + WiFi.localIP().toString());
 }
 
 // -------------------------
@@ -63,8 +47,16 @@ void setup()
 
   // Button setup
   pinMode(BUTTON_PIN, INPUT_PULLUP);
+  pinMode(LED_INDICATOR, OUTPUT);
   pinMode(2, OUTPUT); // Optional: onboard LED for indication
   attachInterrupt(digitalPinToInterrupt(BUTTON_PIN), handleButtonInterrupt, RISING);
+
+  // Display initialization
+  displayInit();
+  setDisplayNumber(0);
+
+  // Init LED grid
+  initLED();
 }
 
 // -------------------------
@@ -73,17 +65,10 @@ void setup()
 void loop()
 {
   // Reconnect to Wi-Fi if disconnected
-  if (WiFi.status() != WL_CONNECTED)
+  if (!wifiReconnect())
   {
-    Serial.println("WiFi disconnected! Attempting to reconnect...");
-    WiFi.disconnect();
-    wifiInitialize();
-    if (WiFi.status() != WL_CONNECTED)
-    {
-      Serial.println("\nFailed to reconnect to WiFi.");
-      delay(2000); // Wait before next attempt
-      return;
-    }
+    delay(2000); // Wait before next attempt
+    return;
   }
 
   // Accept new clients
@@ -114,17 +99,27 @@ void loop()
     // Send message to active client if available
     if (activeClient && activeClient->available())
     {
-      SWITCH++;
-      SWITCH= SWITCH % 2;
-      if (SWITCH % 2 == 0)
+      count++;
+      
+      if (count % 2 == 0)
       {
         activeClient->send("ACTIVATE_FOCUS");
         Serial.println("ACTIVATE!");
+        digitalWrite(LED_INDICATOR, HIGH);
+
+        int activate_count = count / 2;
+        // Display number of times focus was activated.
+        setDisplayNumber(activate_count);
+        displayUpdate();
+
+        // Led display
+        setRow(activate_count % 8, CRGB::Red);
       }
       else
       {
         activeClient->send("DEACTIVATE_FOCUS");
         Serial.println("DEACTIVATE!");
+        digitalWrite(LED_INDICATOR, LOW);
       }
     }
 
@@ -137,5 +132,6 @@ void loop()
     attachInterrupt(digitalPinToInterrupt(BUTTON_PIN), handleButtonInterrupt, RISING);
   }
 
+  displayUpdate();
   delay(50); // main loop delay
 }
