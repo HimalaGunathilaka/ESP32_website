@@ -1,6 +1,8 @@
 let focusMode = false;
 let ws = null;
 var start = 0;
+var end = 0;
+var total_time = 0;
 
 // Rule ID for the redirect rule
 const REDIRECT_RULE_ID = 1;
@@ -18,6 +20,7 @@ function connectWebSocket() {
       focusMode = true;
       start = Date.now();
       console.log("Focus mode ON");
+
       
       await enableRedirectRules();
     }
@@ -25,6 +28,14 @@ function connectWebSocket() {
       focusMode = false;
       console.log("Focus mode OFF");
       await disableRedirectRules();
+      
+      end = getElapsedTime();
+      start = 0;
+      total_time = total_time + end;
+      
+      await chrome.storage.local.set({
+        total_time: total_time,
+      });
     }
   };
 
@@ -44,13 +55,8 @@ function getElapsedTime() {
   return Math.floor((now - start) / 1000); // seconds
 }
 
-// Listen for messages from focus.html
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request.type === "GET_ELAPSED_TIME") {
-    sendResponse({ elapsed: getElapsedTime() });
-    return true;
-  }
-});
+
+
 
 // Enable redirect rules
 async function enableRedirectRules() {
