@@ -113,7 +113,11 @@ void loop()
         displayUpdate();
 
         // Led display
-        setRow(activate_count % 8, CRGB::Red);
+        clearLED();
+        int tmp = activate_count % 8 - 1;
+        if (tmp < 0) tmp = 0;
+
+        setRow(tmp, CRGB::Red);
       }
       else
       {
@@ -132,6 +136,7 @@ void loop()
     attachInterrupt(digitalPinToInterrupt(BUTTON_PIN), handleButtonInterrupt, RISING);
   }
 
+  showLED();
   displayUpdate();
   delay(50); // main loop delay
 }
