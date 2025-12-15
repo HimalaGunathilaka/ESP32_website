@@ -1,9 +1,19 @@
 let focusMode = false;
 let ws = null;
-var start = 0;
-var end = 0;
-var total_time = 0;
 
+let start = 0;
+let total_time =0;
+
+async function elapsedSeconds() {
+  const end = Date.now();
+  console.log("end:",end)
+  console.log("start:",start)
+  console.log("end-start", end- start)
+  console.log(total_time)
+  total_time = total_time + Math.floor((end - start)/1000)
+
+  chrome.storage.local.set({total_time:total_time});
+}
 // Rule ID for the redirect rule
 const REDIRECT_RULE_ID = 1;
 
@@ -21,21 +31,16 @@ function connectWebSocket() {
       start = Date.now();
       console.log("Focus mode ON");
 
-      
       await enableRedirectRules();
     }
     if (event.data === "DEACTIVATE_FOCUS") {
       focusMode = false;
       console.log("Focus mode OFF");
       await disableRedirectRules();
-      
-      end = getElapsedTime();
-      start = 0;
-      total_time = total_time + end;
-      
-      await chrome.storage.local.set({
-        total_time: total_time,
-      });
+
+      if (start !== 0) {
+        elapsedSeconds();
+      }
     }
   };
 
@@ -48,15 +53,6 @@ function connectWebSocket() {
     setTimeout(connectWebSocket, 5000);
   };
 }
-
-function getElapsedTime() {
-  if (!focusMode || !start) return 0;
-  const now = Date.now();
-  return Math.floor((now - start) / 1000); // seconds
-}
-
-
-
 
 // Enable redirect rules
 async function enableRedirectRules() {
@@ -97,6 +93,8 @@ async function disableRedirectRules() {
     console.error("Error disabling rules:", error);
   }
 }
+
+chrome.storage.local.set({total_time:0});
 
 // Initialize WebSocket connection
 connectWebSocket();

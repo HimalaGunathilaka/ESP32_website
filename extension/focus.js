@@ -1,16 +1,15 @@
 let elapsedSeconds = 0;
 
-// Fetch total focus time from storage
-chrome.storage.local.get("total_time", (result) => {
-    if (result.total_time !== undefined) {
-        elapsedSeconds = result.total_time;
-    }
+document.addEventListener("DOMContentLoaded", () => {
+    chrome.storage.local.get(["total_time"], (result) => {
+        if (result.total_time !== undefined) {
+            elapsedSeconds = result.total_time;
+        }
+        // console.log(result.total_time);
+    });
 });
 
 function updateTimer() {
-
-    // Fetching total focus time
-
     const hours = Math.floor(elapsedSeconds / 3600);
     const minutes = Math.floor((elapsedSeconds % 3600) / 60);
     const seconds = elapsedSeconds % 60;
