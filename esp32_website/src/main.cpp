@@ -25,7 +25,7 @@ WebsocketsClient *activeClient = nullptr;
 // -------------------------
 volatile bool buttonPressed = false;
 bool focusMode = false; // ✅ single source of truth
-int activateCount = 0;
+int count = 0;
 
 // -------------------------
 // ISR
@@ -44,12 +44,13 @@ void applyFocusState()
   {
     digitalWrite(LED_INDICATOR, HIGH);
 
-    activateCount++;
-    setDisplayNumber(activateCount);
-
-    int row = (activateCount - 1) % 8;
+    count++;
     
-    if(row == 1) clearLED();
+    
+    int row = (count - 1) % 8;
+    
+    setDisplayNumber(row);
+    if(row == 0) clearLED();
     setRow(row, CRGB::Red);
 
     Serial.println("FOCUS MODE ON");

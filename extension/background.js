@@ -1,29 +1,49 @@
 // -------------------- Constants --------------------
 const REDIRECT_RULE_ID = 1;
+const reset_time = 600000; // 10 minutes for now
 const WS_URL = "ws://10.91.190.102:81";
 
 // -------------------- State --------------------
 let ws = null;
-let start = 0;
 
 // -------------------- Init storage safely --------------------
-chrome.storage.local.get(["focusMode", "total_time"], (data) => {
-  if (data.focusMode === undefined) {
-    chrome.storage.local.set({ focusMode: false });
+chrome.storage.local.get(
+  ["focusMode", "total_time", "absoluteFocusmode", "start"],
+  (data) => {
+    if (data.focusMode === undefined)
+      chrome.storage.local.set({ focusMode: false });
+
+    if (data.total_time === undefined)
+      chrome.storage.local.set({ total_time: 0 });
+
+    if (data.absoluteFocusmode === undefined)
+      chrome.storage.local.set({ absoluteFocusmode: false });
+
+    if (data.start === undefined)
+      chrome.storage.local.set({ start: 0 });
   }
-  if (data.total_time === undefined) {
-    chrome.storage.local.set({ total_time: 0 });
-  }
-});
+);
 
 // -------------------- Time tracking --------------------
 async function elapsedSeconds() {
   const end = Date.now();
-  const elapsed = Math.floor((end - start) / 1000);
+  const { start = 0, total_time = 0 } =
+    await chrome.storage.local.get(["start", "total_time"]);
 
-  const { total_time = 0 } = await chrome.storage.local.get("total_time");
-  await chrome.storage.local.set({ total_time: total_time + elapsed });
+  if (start === 0) return;
+
+  const elapsed = Math.floor((end - start) / 1000);
+  await chrome.storage.local.set({
+    total_time: total_time + elapsed,
+    start: 0
+  });
 }
+
+// --------------------Reset total time after t time---------
+async function resetTotal_time(){
+  chrome.storage.local.set({total_time:0});
+}
+
 
 // -------------------- Redirect logic --------------------
 async function enableRedirectRules() {
@@ -58,9 +78,7 @@ async function disableRedirectRules() {
 function connectWebSocket() {
   ws = new WebSocket(WS_URL);
 
-  ws.onopen = () => {
-    console.log("WebSocket connected");
-  };
+  ws.onopen = () => console.log("WebSocket connected");
 
   ws.onmessage = (event) => {
     if (event.data === "ACTIVATE_FOCUS") {
@@ -78,9 +96,7 @@ function connectWebSocket() {
     }
   };
 
-  ws.onerror = (err) => {
-    console.error("WebSocket error", err);
-  };
+  ws.onerror = (err) => console.error("WebSocket error", err);
 
   ws.onclose = () => {
     console.log("WebSocket closed, reconnecting...");
@@ -96,20 +112,41 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
   const source = changes.source?.newValue;
 
   if (newFocus) {
-    start = Date.now();
-    console.log("Focus mode ON");
+    const start = Date.now();
+    await chrome.storage.local.set({ start });
 
     await enableRedirectRules();
+    await chrome.storage.local.set({ absoluteFocusmode: true });
+
+    console.log("Focus mode ON");
 
     if (ws?.readyState === WebSocket.OPEN && source !== "ws") {
       ws.send("activate");
     }
   } else {
-    console.log("Focus mode OFF");
+    const { start = 0 } = await chrome.storage.local.get("start");
+    const elapsed = Date.now() - start;
 
+    console.log("tried")
+    if (elapsed < 60000) {
+      console.log("Deactivation blocked (1 min lock)");
+
+      // Re-assert truth
+      await chrome.storage.local.set({
+        focusMode: true,
+        absoluteFocusmode: true
+      });
+
+      return;
+    }
+
+    // ---- Deactivation allowed ----
     await disableRedirectRules();
+    await chrome.storage.local.set({ absoluteFocusmode: false });
 
-    if (start !== 0) await elapsedSeconds();
+    await elapsedSeconds();
+
+    console.log("Focus mode OFF");
 
     if (ws?.readyState === WebSocket.OPEN && source !== "ws") {
       ws.send("deactivate");
@@ -119,3 +156,5 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
 
 // -------------------- Start --------------------
 connectWebSocket();
+
+setInterval(resetTotal_time, reset_time)
