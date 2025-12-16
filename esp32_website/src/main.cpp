@@ -16,11 +16,10 @@ WebsocketsClient *activeClient = nullptr;
 // -------------------------
 // Button Configuration
 // -------------------------
-#define BUTTON_PIN  18
+#define BUTTON_PIN 18
 #define LED_INDICATOR 19
 volatile bool buttonPressed = false;
 int count = 0;
-
 
 void IRAM_ATTR handleButtonInterrupt()
 {
@@ -92,39 +91,49 @@ void loop()
   }
 
   // Check button state
-  if (buttonPressed)
+  if (activeClient->available())
   {
-    // Serial.println("Button pressed!");
-
-    // Send message to active client if available
-    if (activeClient && activeClient->available())
+    if (buttonPressed)
     {
-      count++;
-      
-      if (count % 2 == 0)
+      // Serial.println("Button pressed!");
+
+      // Send message to active client if available
+      if (activeClient)
       {
-        activeClient->send("ACTIVATE_FOCUS");
-        Serial.println("ACTIVATE!");
-        digitalWrite(LED_INDICATOR, HIGH);
+        count++;
 
-        int activate_count = count / 2;
-        // Display number of times focus was activated.
-        setDisplayNumber(activate_count);
-        displayUpdate();
+        if (count % 2 == 0)
+        {
+          activeClient->send("ACTIVATE_FOCUS");
+          Serial.println("ACTIVATE!");
+          digitalWrite(LED_INDICATOR, HIGH);
 
-        // Led display
-        clearLED();
-        int tmp = activate_count % 8 - 1;
-        if (tmp < 0) tmp = 0;
+          int activate_count = count / 2;
+          // Display number of times focus was activated.
+          setDisplayNumber(activate_count);
+          displayUpdate();
 
-        setRow(tmp, CRGB::Red);
+          // Led display
+          clearLED();
+          int tmp = activate_count % 8 - 1;
+          if (tmp < 0)
+            tmp = 0;
+
+          setRow(tmp, CRGB::Red);
+        }
+        else
+        {
+          activeClient->send("DEACTIVATE_FOCUS");
+          Serial.println("DEACTIVATE!");
+          digitalWrite(LED_INDICATOR, LOW);
+        }
       }
-      else
-      {
-        activeClient->send("DEACTIVATE_FOCUS");
-        Serial.println("DEACTIVATE!");
-        digitalWrite(LED_INDICATOR, LOW);
-      }
+    }
+    else{
+      activeClient->onMessage([](WebsocketsMessage message){
+        Serial.println("Received message: " + message.data());
+        
+      });
     }
 
     // Reset button state

@@ -2,22 +2,20 @@
   "manifest_version": 3,
   "name": "Focus Redirector",
   "version": "1.0",
-  "side_panel": {
-    "default_path": "sidepanel.html"
-  },
   "permissions": [
     "declarativeNetRequest",
-    "sidepanel",
-    "tabs",
     "storage"
   ],
+  "action":{
+    "default_popup":"popup.html"
+  },
   "host_permissions": [
     "*://www.youtube.com/*",
     "*://www.facebook.com/*",
     "*://www.twitter.com/*"
   ],
   "background": {
-    "service_worker": "background.js"
+    "service_worker":"background.js"
   },
   "declarative_net_request": {
     "rule_resources": []
