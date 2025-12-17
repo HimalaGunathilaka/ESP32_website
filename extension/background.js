@@ -1,7 +1,8 @@
 // -------------------- Constants --------------------
 const REDIRECT_RULE_ID = 1;
-const reset_time = 600000; // 10 minutes for now
+const RESET_TIME = 600000; // 10 minutes
 const WS_URL = "ws://10.91.190.102:81";
+const COOLOFF_TIME = 5000;
 
 // -------------------- State --------------------
 let ws = null;
@@ -64,21 +65,21 @@ async function enableRedirectRules() {
       }
     ]
   });
-  console.log("Redirect rules enabled");
+  //console.log("Redirect rules enabled");
 }
 
 async function disableRedirectRules() {
   await chrome.declarativeNetRequest.updateDynamicRules({
     removeRuleIds: [REDIRECT_RULE_ID]
   });
-  console.log("Redirect rules disabled");
+  //console.log("Redirect rules disabled");
 }
 
 // -------------------- WebSocket --------------------
 function connectWebSocket() {
   ws = new WebSocket(WS_URL);
 
-  ws.onopen = () => console.log("WebSocket connected");
+  ws.onopen = () => //console.log("WebSocket connected");
 
   ws.onmessage = (event) => {
     if (event.data === "ACTIVATE_FOCUS") {
@@ -96,10 +97,10 @@ function connectWebSocket() {
     }
   };
 
-  ws.onerror = (err) => console.error("WebSocket error", err);
+  ws.onerror = (err) => //console.error("WebSocket error", err);
 
   ws.onclose = () => {
-    console.log("WebSocket closed, reconnecting...");
+    //console.log("WebSocket closed, reconnecting...");
     setTimeout(connectWebSocket, 5000);
   };
 }
@@ -110,26 +111,32 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
 
   const newFocus = changes.focusMode.newValue;
   const source = changes.source?.newValue;
+  const { start } = await chrome.storage.local.get("start");
 
   if (newFocus) {
-    const start = Date.now();
-    await chrome.storage.local.set({ start });
+    
+    if (start === 0){
+      await chrome.storage.local.set({ start: Date.now() });
+      //console.log("Start time set");
+    }else{
+      //console.log("Start already set")
+    }
 
     await enableRedirectRules();
     await chrome.storage.local.set({ absoluteFocusmode: true });
 
-    console.log("Focus mode ON");
+    //console.log("Focus mode ON");
 
     if (ws?.readyState === WebSocket.OPEN && source !== "ws") {
       ws.send("activate");
     }
   } else {
-    const { start = 0 } = await chrome.storage.local.get("start");
     const elapsed = Date.now() - start;
 
-    console.log("tried")
-    if (elapsed < 60000) {
-      console.log("Deactivation blocked (1 min lock)");
+    //console.log("tried")
+    if (elapsed < COOLOFF_TIME) {
+      //console.log("Deactivation blocked (1 min lock)");
+      //console.log(elapsed);
 
       // Re-assert truth
       await chrome.storage.local.set({
@@ -146,7 +153,7 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
 
     await elapsedSeconds();
 
-    console.log("Focus mode OFF");
+    //console.log("Focus mode OFF");
 
     if (ws?.readyState === WebSocket.OPEN && source !== "ws") {
       ws.send("deactivate");
@@ -157,4 +164,4 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
 // -------------------- Start --------------------
 connectWebSocket();
 
-setInterval(resetTotal_time, reset_time)
+setInterval(resetTotal_time, RESET_TIME)
