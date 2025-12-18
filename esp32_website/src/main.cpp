@@ -33,6 +33,7 @@ int count = 0;
 void IRAM_ATTR handleButtonInterrupt()
 {
   buttonPressed = true;
+  detachInterrupt(digitalPinToInterrupt(BUTTON_PIN));
 }
 
 // -------------------------
@@ -43,15 +44,16 @@ void applyFocusState()
   if (focusMode)
   {
     digitalWrite(LED_INDICATOR, HIGH);
-
-    count++;
-    
-    
-    int row = (count - 1) % 8;
-    
-    setDisplayNumber(row);
-    if(row == 0) clearLED();
-    setRow(row, CRGB::Red);
+    int row = (count - 1) % 9;
+    setDisplayNumber(count);
+    if (row == 8)
+    {
+      clearLED();
+    }
+    else
+    {
+      setRow(row, CRGB::Red);
+    }
 
     Serial.println("FOCUS MODE ON");
   }
@@ -102,21 +104,20 @@ void acceptClient()
 
     activeClient->onMessage([](WebsocketsMessage message)
                             {
-      String msg = message.data();
-      Serial.println("Received: " + msg);
-
-      if (msg == "activate") {
-        if (!focusMode) {
+        String msg = message.data();
+        Serial.println("Received: " + msg);
+        
+        if (msg == "activate") {
+          if(!focusMode) count++;
+          // Serial.println(count);
+          // Serial.println(focusMode);
           focusMode = true;
           applyFocusState();
         }
-      }
-      else if (msg == "deactivate") {
-        if (focusMode) {
+        else if (msg == "deactivate") {
           focusMode = false;
           applyFocusState();
-        }
-      } });
+        } });
 
     activeClient->onEvent([](WebsocketsEvent event, String data)
                           {
@@ -137,20 +138,18 @@ void handleButton()
   if (!buttonPressed || !activeClient)
     return;
 
-  focusMode = !focusMode;
+  Serial.println(focusMode);
 
   if (focusMode)
-    activeClient->send("ACTIVATE_FOCUS");
-  else
     activeClient->send("DEACTIVATE_FOCUS");
+  else
+    activeClient->send("ACTIVATE_FOCUS");
 
-  applyFocusState();
-
-  buttonPressed = false;
+  // applyFocusState();
 
   // Debounce
-  detachInterrupt(digitalPinToInterrupt(BUTTON_PIN));
   delay(300);
+  buttonPressed = false;
   attachInterrupt(digitalPinToInterrupt(BUTTON_PIN),
                   handleButtonInterrupt,
                   RISING);
