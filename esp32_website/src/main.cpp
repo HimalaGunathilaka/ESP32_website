@@ -16,15 +16,21 @@ WebsocketsClient *activeClient = nullptr;
 // -------------------------
 // Pins
 // -------------------------
-#define BUTTON_PIN 18
-#define LED_INDICATOR 19
-#define ONBOARD_LED 2
+#define BUTTON_PIN     18
+#define LED_INDICATOR  19
+#define ONBOARD_LED    2
+
+// ------------------------------
+// Button debounce
+// -----------------------------
+unsigned long lastButtonTime = 0;
+const unsigned long debounceMs = 300;
 
 // -------------------------
 // Global State
 // -------------------------
 volatile bool buttonPressed = false;
-bool focusMode = false; // ✅ single source of truth
+bool focusMode = false;     // single source of truth
 int count = 0;
 
 // -------------------------
@@ -44,16 +50,14 @@ void applyFocusState()
   if (focusMode)
   {
     digitalWrite(LED_INDICATOR, HIGH);
+
     int row = (count - 1) % 9;
     setDisplayNumber(count);
+
     if (row == 8)
-    {
       clearLED();
-    }
     else
-    {
       setRow(row, CRGB::Red);
-    }
 
     Serial.println("FOCUS MODE ON");
   }
@@ -62,6 +66,82 @@ void applyFocusState()
     digitalWrite(LED_INDICATOR, LOW);
     Serial.println("FOCUS MODE OFF");
   }
+}
+
+// -------------------------
+// Accept WebSocket client
+// -------------------------
+void acceptClient()
+{
+  if (!server.poll()) return;
+
+  // Close existing client if any
+  if (activeClient)
+  {
+    activeClient->close();
+    delete activeClient;
+    activeClient = nullptr;
+  }
+
+  activeClient = new WebsocketsClient(server.accept());
+
+  activeClient->onMessage([](WebsocketsMessage message)
+  {
+    String msg = message.data();
+    Serial.println("Received: " + msg);
+
+    if (msg == "activate")
+    {
+      if (!focusMode) count++;
+      focusMode = true;
+      applyFocusState();
+    }
+    else if (msg == "deactivate")
+    {
+      focusMode = false;
+      applyFocusState();
+    }
+    else if (msg == "ping"){
+      activeClient->send("pong");
+    }
+  });
+
+  activeClient->onEvent([](WebsocketsEvent event, String data)
+  {
+    if (event == WebsocketsEvent::ConnectionClosed)
+    {
+      Serial.println("Client disconnected!");
+      digitalWrite(ONBOARD_LED, LOW);
+
+      delete activeClient;
+      activeClient = nullptr;
+    }
+  });
+
+  digitalWrite(ONBOARD_LED, HIGH);
+  Serial.println("Client connected!");
+}
+
+// -------------------------
+// Button handling
+// -------------------------
+void handleButton()
+{
+  if (!buttonPressed || !activeClient) return;
+
+  unsigned long now = millis();
+  if (now - lastButtonTime < debounceMs) return;
+  lastButtonTime = now;
+
+  if (focusMode)
+    activeClient->send("DEACTIVATE_FOCUS");
+  else
+    activeClient->send("ACTIVATE_FOCUS");
+
+  buttonPressed = false;
+  attachInterrupt(digitalPinToInterrupt(BUTTON_PIN),
+                  handleButtonInterrupt,
+                  RISING);
 }
 
 // -------------------------
@@ -94,97 +174,23 @@ void setup()
 }
 
 // -------------------------
-// Accept WebSocket client
-// -------------------------
-void acceptClient()
-{
-  if (server.poll() && !activeClient)
-  {
-    activeClient = new WebsocketsClient(server.accept());
-
-    activeClient->onMessage([](WebsocketsMessage message)
-                            {
-        String msg = message.data();
-        Serial.println("Received: " + msg);
-        
-        if (msg == "activate") {
-          if(!focusMode) count++;
-          // Serial.println(count);
-          // Serial.println(focusMode);
-          focusMode = true;
-          applyFocusState();
-        }
-        else if (msg == "deactivate") {
-          focusMode = false;
-          applyFocusState();
-        } });
-
-    activeClient->onEvent([](WebsocketsEvent event, String data)
-                          {
-      if (event == WebsocketsEvent::ConnectionClosed) {
-        Serial.println("Client disconnected (event)");
-      } });
-
-    digitalWrite(ONBOARD_LED, HIGH);
-    Serial.println("Client connected!");
-  }
-}
-
-// -------------------------
-// Button handling
-// -------------------------
-void handleButton()
-{
-  if (!buttonPressed || !activeClient)
-    return;
-
-  Serial.println(focusMode);
-
-  if (focusMode)
-    activeClient->send("DEACTIVATE_FOCUS");
-  else
-    activeClient->send("ACTIVATE_FOCUS");
-
-  // applyFocusState();
-
-  // Debounce
-  delay(300);
-  buttonPressed = false;
-  attachInterrupt(digitalPinToInterrupt(BUTTON_PIN),
-                  handleButtonInterrupt,
-                  RISING);
-}
-
-// -------------------------
 // Loop
 // -------------------------
 void loop()
 {
-  if (!wifiReconnect())
+  if (!WiFi.isConnected())
   {
-    delay(2000);
+    digitalWrite(ONBOARD_LED, LOW);
     return;
   }
 
   acceptClient();
 
   if (activeClient)
-  {
     activeClient->poll();
-
-    if (!activeClient->available())
-    {
-      delete activeClient;
-      activeClient = nullptr;
-      digitalWrite(ONBOARD_LED, LOW);
-      Serial.println("Client disconnected!");
-    }
-  }
 
   handleButton();
 
   showLED();
   displayUpdate();
-
-  delay(50);
 }

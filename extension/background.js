@@ -196,4 +196,10 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
 // -------------------- Start --------------------
 connectWebSocket();
 
-setInterval(resetTotal_time, RESET_TIME)
+setInterval(resetTotal_time, RESET_TIME);
+
+setInterval(() => {
+  if (ws?.readyState === WebSocket.OPEN) {
+    ws.send("ping");
+  }
+}, 15000);
