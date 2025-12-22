@@ -33,7 +33,7 @@ document.addEventListener("DOMContentLoaded", () => {
     focusMode = changes.absoluteFocusmode.newValue;
     btn.classList.toggle("active", focusMode);
 
-    if(!focusMode){
+    if (!focusMode) {
       displayImage(false);
     }
   });
@@ -46,7 +46,6 @@ document.addEventListener("DOMContentLoaded", () => {
       displayImage(data.absoluteFocusmode === true);
     });
   });
-
 
 });
 
@@ -79,22 +78,23 @@ document.addEventListener("DOMContentLoaded", () => {
 
 // -------------------- Timer (UI only) --------------------
 async function updateTimer() {
-
-  const { absoluteFocusmode, total_time, start } =
+  const { absoluteFocusmode, total_time = 0, start = 0 } =
     await chrome.storage.local.get([
       "absoluteFocusmode",
       "total_time",
       "start"
     ]);
 
-  if (!absoluteFocusmode) return;
-
   let secs = total_time;
 
-  if (start && start !== 0) {
+  if (absoluteFocusmode && start) {
     secs += Math.floor((Date.now() - start) / 1000);
   }
 
+  renderTime(secs);
+}
+
+function renderTime(secs) {
   const hours = Math.floor(secs / 3600);
   const minutes = Math.floor((secs % 3600) / 60);
   const seconds = secs % 60;
@@ -105,15 +105,26 @@ async function updateTimer() {
     `${String(seconds).padStart(2, "0")}`;
 }
 
+
 updateTimer();
 setInterval(updateTimer, 1000);
 
 
 
 // ---------------------Reactive observer----------------------
-// chrome.storage.onChanged.addListener((changes, area) => {
-//   if (area !== "local") return;
-//   if(changes.focusMode === true && changes.absoluteFocusmode === true){
-//     displayImage()
-//   }
-// });
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area !== "local") return;
+
+  // Only react when focusMode changes
+  if (!changes.focusMode) return;
+
+  // Only when focusMode is turned ON
+  if (changes.focusMode.newValue !== true) return;
+
+  // Check current absoluteFocusmode
+  chrome.storage.local.get("absoluteFocusmode", ({ absoluteFocusmode }) => {
+    if (absoluteFocusmode === true) {
+      displayImage(true);
+    }
+  });
+});

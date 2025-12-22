@@ -182,6 +182,7 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
     // ---- Deactivation allowed ----
     await disableRedirectRules();
     await chrome.storage.local.set({ absoluteFocusmode: false });
+    await chrome.storage.local.set({focusMode:false});
 
     await elapsedSeconds();
 
