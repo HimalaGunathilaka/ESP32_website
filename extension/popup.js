@@ -32,6 +32,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
     focusMode = changes.absoluteFocusmode.newValue;
     btn.classList.toggle("active", focusMode);
+
+    if(!focusMode){
+      displayImage(false);
+    }
   });
 
   btn.addEventListener("click", () => {
