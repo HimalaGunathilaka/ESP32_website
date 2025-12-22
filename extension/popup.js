@@ -8,16 +8,11 @@ function focus() {
 }
 
 // Display image only when try to deactivate focus while in cool off
-function displayImage() {
+function displayImage(show) {
   const img = document.getElementById("pict");
-  chrome.storage.local.get("absoluteFocusmode", (data) => {
-    if (data.absoluteFocusmode) {
-      img.style.display = "block";
-    } else {
-      img.style.display = "none";
-    }
-  })
+  img.style.display = show ? "block" : "none";
 }
+
 
 // -------------------- Init popup --------------------
 document.addEventListener("DOMContentLoaded", () => {
@@ -39,10 +34,15 @@ document.addEventListener("DOMContentLoaded", () => {
     btn.classList.toggle("active", focusMode);
   });
 
-  btn.addEventListener("click", async () => {
-    await focus();
-    displayImage();
+  btn.addEventListener("click", () => {
+    focus();
+
+    chrome.storage.local.get("absoluteFocusmode", (data) => {
+      console.log("abs Focus:", data.absoluteFocusmode)
+      displayImage(data.absoluteFocusmode === true);
+    });
   });
+
 
 });
 
@@ -51,19 +51,19 @@ document.addEventListener("DOMContentLoaded", () => {
   const addBtn = document.getElementById("addBtn");
 
   addBtn.addEventListener("click", () => {
-    addBtn.addEventListener("click", ()=>{
+    addBtn.addEventListener("click", () => {
       const value = input.value.trim();
 
-      if(!value) return;
+      if (!value) return;
 
       console.log("Website entered:", value);
 
-      chrome.storage.local.get("block", (data) =>{
+      chrome.storage.local.get("block", (data) => {
         const blocked = data.block ?? [];
         const lowercasedValue = value.toLowerCase();
-        if(!blocked.includes(lowercasedValue)){
+        if (!blocked.includes(lowercasedValue)) {
           blocked.push(lowercasedValue);
-          chrome.storage.local.set({block:blocked});
+          chrome.storage.local.set({ block: blocked });
           console.log("Updated block list:");
         }
         console.log("Already present");
