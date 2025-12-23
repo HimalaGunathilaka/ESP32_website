@@ -53,12 +53,21 @@
             box-shadow: 0 6px 20px rgba(245, 87, 108, 0.6);
         }
 
-        /* img {
-            width: 100%;
-            max-height: 120px;
-            object-fit: cover;
-            border-radius: 8px;
-        } */
+        #addBtn {
+            padding: 8px 16px;
+            background: #959ec7;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 0 auto;
+            display: block;
+        }
+
+        #addBtn.tag {
+            background-color: #092fd8;
+            
+        }
 
         #pict {
             width: 100%;
@@ -76,10 +85,7 @@
         <img id="pict" src="picture.jpg" alt="Scolding grandma">
         <div id="timer" style="font-size:2em; margin-top:10px;">00:00:00</div>
         <div style="display: flex; gap: 8px; margin-top: 12px;">
-            <button id="addBtn"
-                style="padding: 8px 16px; background: #667eea; color: white; border: none; border-radius: 4px; cursor: pointer;">Add</button>
-            <input id="websiteInput" placeholder="Enter website"
-                style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+            <button id="addBtn">Add</button>
         </div>
     </div>
     <script src="popup.js"></script>

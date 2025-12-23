@@ -26,9 +26,6 @@ chrome.storage.local.get(
     if (data.block === undefined)
       chrome.storage.local.set({
         block: [
-          "youtube",
-          "facebook",
-          "twitter"
         ]
       })
   }
@@ -80,6 +77,8 @@ async function enableRedirectRules() {
   // console.log("Redirect rules enabled");
 }
 
+
+// ----Check all tabs and block them-----
 async function redirectCurrentTab() {
   const tabs = await chrome.tabs.query({});
   const { block = [] } = await chrome.storage.local.get("block");
@@ -97,6 +96,8 @@ async function redirectCurrentTab() {
     }
   }
 }
+
+
 
 async function disableRedirectRules() {
   await chrome.declarativeNetRequest.updateDynamicRules({
