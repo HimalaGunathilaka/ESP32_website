@@ -4,8 +4,11 @@
 // -------------------------
 // Wi-Fi Configuration
 // -------------------------
-const char *SSID = "Himala-A12";
-const char *PASSWORD = "reko2115";
+// const char *SSID = "Himala-A12";
+// const char *PASSWORD = "reko2115";
+
+const char *SSID = "Himala MHS";
+const char *PASSWORD = "DragonQuest123";
 
 // -------------------------
 // Wi-Fi Initialization Function

@@ -7,8 +7,14 @@
     "storage",
     "tabs"
   ],
-  "action":{
-    "default_popup":"popup.html"
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
   },
   "host_permissions": [
     "*://www.youtube.com/*",
@@ -16,7 +22,7 @@
     "*://www.twitter.com/*"
   ],
   "background": {
-    "service_worker":"background.js"
+    "service_worker": "background.js"
   },
   "declarative_net_request": {
     "rule_resources": []

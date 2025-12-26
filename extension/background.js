@@ -1,7 +1,7 @@
 // -------------------- Constants --------------------
 const REDIRECT_RULE_ID = 1;
 const RESET_TIME = 600000; // 10 minutes
-const WS_URL = "ws://10.91.190.102:81";
+const WS_URL = "ws://192.168.1.19:81";
 const COOLOFF_TIME = 5000;
 
 // -------------------- State --------------------
