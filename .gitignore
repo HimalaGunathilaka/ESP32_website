@@ -1,2 +1,6 @@
 .venv
 .vscode
+
+
+/mqtt/data
+/mqtt/log
