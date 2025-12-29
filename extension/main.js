@@ -36,8 +36,6 @@ chrome.storage.local.get(
         if (data.block === undefined)
             chrome.storage.local.set({
                 block: [
-                    "youtube.com",
-                    "facebook.com"
                 ]
             })
     }
@@ -110,7 +108,7 @@ async function redirectCurrentTab() {
     for (const tab of tabs) {
         if (!tab?.id || !tab?.url) continue;
         if (tab.url.includes("focus.html")) continue;
-        if (tab.url.startsWith("chrome://") || tab.url.startsWith("brave://")) continue;
+        // if (tab.url.startsWith("chrome://") || tab.url.startsWith("brave://")) continue;
 
         // Iterate over all the urls inside of block
         if (block.some(site => tab.url.includes(site))) {
@@ -155,6 +153,7 @@ function initializeMQTT() {
     client.connect({
         userName: "himala",
         password: "123",
+        keepAliveInterval: 60, // in seconds
         onSuccess: () => client.subscribe("focus/activate"),
         onFailure: () => setTimeout(initializeMQTT, 2000),
     });
@@ -173,7 +172,7 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
     // console.log("Start of observer");
     if (area !== "local" || !changes.focusMode) return;
 
-    console.log("Inside")
+    // console.log("Inside")
     const newFocus = changes.focusMode.newValue;
     const source = changes.source?.newValue;
     const { start } = await chrome.storage.local.get("start");
@@ -183,9 +182,6 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
 
         if (start === 0) {
             await chrome.storage.local.set({ start: Date.now() });
-            // console.log("Start time set");
-        } else {
-            // console.log("Start already set")
         }
 
         await enableRedirectRules();

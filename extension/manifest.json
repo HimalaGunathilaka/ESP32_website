@@ -15,12 +15,14 @@
     "permissions": [
         "tabs",
         "storage",
-        "declarativeNetRequest"
+        "declarativeNetRequest",
+        "declarativeNetRequestWithHostAccess"
     ],
     "declarative_net_request": {
         "rule_resources": []
     },
     "host_permissions": [
+        "<all_urls>",
         "ws://localhost:9001/*",
         "wss://localhost:9001/*"
     ],
