@@ -4,3 +4,6 @@
 
 /mqtt/data
 /mqtt/log
+
+/mosquitto_server/data
+/mosquitto_server/log
