@@ -78,25 +78,36 @@ async function resetTotal_time() {
 // ======================================================
 
 // -------------------- Redirect logic --------------------
+const REDIRECT_RULE_BASE_ID = 1000; // base id to avoid collisions
+
 async function enableRedirectRules() {
-    await chrome.declarativeNetRequest.updateDynamicRules({
-        removeRuleIds: [REDIRECT_RULE_ID],
-        addRules: [
-            {
-                id: REDIRECT_RULE_ID,
-                priority: 1,
-                action: {
-                    type: "redirect",
-                    redirect: { extensionPath: "/focus.html" }
-                },
-                condition: {
-                    urlFilter: "*",
-                    resourceTypes: ["main_frame"]
-                }
+    const { block = [] } = await chrome.storage.local.get("block");
+
+    // Remove previous redirect rules
+    const removeRuleIds = block.map((_, i) => REDIRECT_RULE_BASE_ID + i);
+
+    // Create redirect rules for each blocked site
+    const addRules = block.map((site, i) => ({
+        id: REDIRECT_RULE_BASE_ID + i,
+        priority: 1,
+        action: {
+            type: "redirect",
+            redirect: {
+                extensionPath: "/focus.html"
             }
-        ]
+        },
+        condition: {
+            urlFilter: site,               // ← uses block entries
+            resourceTypes: ["main_frame"]
+        }
+    }));
+
+    await chrome.declarativeNetRequest.updateDynamicRules({
+        removeRuleIds,
+        addRules
     });
-    // console.log("Redirect rules enabled");
+
+    // console.log("Redirect rules enabled for:", block);
 }
 
 
@@ -120,13 +131,16 @@ async function redirectCurrentTab() {
 }
 
 
-
 async function disableRedirectRules() {
+    const { block = [] } = await chrome.storage.local.get("block");
+
+    const removeRuleIds = block.map((_, i) => REDIRECT_RULE_BASE_ID + i);
+
     await chrome.declarativeNetRequest.updateDynamicRules({
-        removeRuleIds: [REDIRECT_RULE_ID]
+        removeRuleIds
     });
-    // console.log("Redirect rules disabled");
 }
+
 
 // ======================================================
 // ======================================================
