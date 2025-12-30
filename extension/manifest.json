@@ -16,7 +16,8 @@
         "tabs",
         "storage",
         "declarativeNetRequest",
-        "declarativeNetRequestWithHostAccess"
+        "declarativeNetRequestWithHostAccess",
+        "alarms"
     ],
     "declarative_net_request": {
         "rule_resources": []

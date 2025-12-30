@@ -12,6 +12,8 @@ if (typeof window === 'undefined') {
 
 importScripts('mqttws31.min.js');
 
+
+
 const REDIRECT_RULE_ID = 1;
 const RESET_TIME = 600000; // 10 minutes
 // const WS_URL = "ws://192.168.1.19:81";
@@ -19,8 +21,12 @@ const COOLOFF_TIME = 5000;
 
 // -------------------- Init storage safely --------------------
 chrome.storage.local.get(
-    ["focusMode", "total_time", "absoluteFocusmode", "start", "block"],
+    ["focusMode", "total_time", "absoluteFocusmode", "start", "block", "clientId"],
     (data) => {
+        if (data.clientId === undefined) {
+            const clientId = Math.floor(Math.random() * 1e4).toString(); // random 4-digit number
+            chrome.storage.local.set({ clientId });
+        }
         if (data.focusMode === undefined)
             chrome.storage.local.set({ focusMode: false });
 
@@ -53,6 +59,8 @@ async function elapsedSeconds() {
     const { start = 0, total_time = 0 } =
         await chrome.storage.local.get(["start", "total_time"]);
 
+    // This condition is set for whenever start was not captured 
+    // which implies do not calculate elapsed time for that instance.
     if (start === 0) return;
 
     const elapsed = Math.floor((end - start) / 1000);
@@ -237,10 +245,25 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
         // console.log("Focus mode OFF");
 
         if (client && client.isConnected()) {
-            const msg = new Paho.MQTT.Message("deactivate");
-            msg.destinationName = "focus/activate";
-            client.send(msg);
-        }
+            chrome.storage.local.get(["total_time", "clientId"], (data) => {
+                const totalTime = data.total_time ?? 0;
+                const clientId = data.clientId;
 
+                const payload = `d|${clientId}|${totalTime}`;
+
+                const msg = new Paho.MQTT.Message(payload);
+                msg.destinationName = "focus/activate";
+                client.send(msg);
+            });
+        }
     }
+});
+
+
+// ===============================
+// Keep alive - Since the extension it self can become idle (Even if the inbuilt heart beat of mqtt)
+// ===============================
+chrome.alarms.create("mqttPing", { periodInMinutes: 0.5 });
+chrome.alarms.onAlarm.addListener(() => {
+    if (!client || !client.isConnected()) initializeMQTT();
 });

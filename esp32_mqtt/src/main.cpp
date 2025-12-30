@@ -4,6 +4,7 @@
 #include "wifi_manager.h"
 #include "display.h"
 #include "led.h"
+#include "hash.h"
 
 // -------------------------
 // Pins
@@ -39,14 +40,12 @@ void IRAM_ATTR handleButtonInterrupt()
 // -------------------------
 void applyFocusState()
 {
-  if (
-    
-  )
+  if (focusMode)
   {
     digitalWrite(LED_INDICATOR, HIGH);
 
     int row = (count - 1) % 9;
-    setDisplayNumber(count);
+    // setDisplayNumber(count);
     Serial.println(count);
 
     if (row == 8)
@@ -68,25 +67,74 @@ void applyFocusState()
 // ----------------------------
 const char *mqtt_broker = "10.108.150.105"; // Put the ip of the laptop
 
+// Function to handle "d|<clientId>|<totalTime>" payload
+void handleSessionEnd(char *payload)
+{
+  // Copy payload to a temporary string
+  char msg[strlen(payload) + 1];
+  strcpy(msg, payload);
+
+  // Split by '|'
+  char *eventType = strtok(msg, "|");     // "d"
+  char *clientId = strtok(NULL, "|");     // e.g., "483921"
+  char *totalTimeStr = strtok(NULL, "|"); // e.g., "120"
+
+  if (eventType && clientId && totalTimeStr)
+  {
+    long sessionTime = atol(totalTimeStr);
+
+    total_time += sessionTime; // aggregate total time
+    int display_time = total_time / 60;
+
+    // Update display in minutes
+    setDisplayNumber(display_time);
+    Serial.print("Display time");
+    Serial.println(display_time);
+  }
+}
+
 // Callback function: Called when a message arrives
 void callback(char *topic, byte *payload, unsigned int length)
 {
-  Serial.print("Message received on topic: ");
-  Serial.println(topic);
-  Serial.print("Message: ");
 
-  // Check if payload is "activate"
-  if (length == 8 && strncmp((char *)payload, "activate", length) == 0)
+  // Make sure payload is null-terminated
+  char msg[length + 1];
+  memcpy(msg, payload, length);
+  msg[length] = '\0';
+
+  Serial.print("Payload: ");
+  Serial.println(msg);
+
+  if (strcmp(msg, "activate") == 0)
   {
     if (!focusMode)
       count++;
     focusMode = true;
     applyFocusState();
   }
-  else if (length == 10 && strncmp((char *)payload, "deactivate", length) == 0)
+  else if (strncmp(msg, "d|", 2) == 0)
   {
     focusMode = false;
-    applyFocusState();
+    char *event = strtok(msg, "|");
+    char *clientId = strtok(NULL, "|");
+    char *timeStr = strtok(NULL, "|");
+
+    if (!clientId || !timeStr)
+      return;
+
+    uint32_t key = hashClientId(clientId);
+    long seconds = atol(timeStr);
+
+    hashPut(key, seconds);
+
+    long total = getGlobalTotal();
+
+    Serial.print("Client hash ");
+    Serial.print(key);
+    Serial.print(" total = ");
+    Serial.println(total);
+
+    setDisplayNumber(total / 60);
   }
 }
 
@@ -105,9 +153,9 @@ void handleButton()
   lastButtonTime = now;
 
   if (focusMode)
-    client.publish(topic,"DEACTIVATE");
+    client.publish(topic, "DEACTIVATE");
   else
-    client.publish(topic,"ACTIVATE");
+    client.publish(topic, "ACTIVATE");
 
   buttonPressed = false;
   attachInterrupt(digitalPinToInterrupt(BUTTON_PIN),

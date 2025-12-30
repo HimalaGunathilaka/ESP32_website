@@ -30,4 +30,6 @@ int XY_serpentine(int x, int y);
 // External access to LED array if needed
 extern CRGB leds[NUM_LEDS];
 
+extern long total_time;
+
 #endif
