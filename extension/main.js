@@ -192,7 +192,14 @@ initializeMQTT();
 // -------------------- Reactive observer --------------------
 chrome.storage.onChanged.addListener(async (changes, area) => {
     // console.log("Start of observer");
-    if (area !== "local" || !changes.focusMode) return;
+    if (area !== "local") return;
+
+    if (changes.block) {
+        const abs = await chrome.storage.local.get("absoluteFocusmode");
+        if(abs.absoluteFocusmode) await redirectCurrentTab();
+    }
+
+    if (!changes.focusMode) return;
 
     // console.log("Inside")
     const newFocus = changes.focusMode.newValue;

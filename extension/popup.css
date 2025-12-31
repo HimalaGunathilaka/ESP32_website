@@ -92,6 +92,11 @@ body {
 .progress-ring__progress {
     stroke: #667eea;
     stroke-linecap: round;
+    transition: stroke 0.3s ease;
+}
+
+.progress-ring__progress.active {
+    stroke: #f5576c;
 }
 
 #timer {

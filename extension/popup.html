@@ -13,36 +13,23 @@
 <body>
     <div class="progress-container">
         <svg class="progress-ring" width="200" height="200">
-            <circle
-                class="progress-ring__circle progress-ring__background"
-                stroke-width="12"
-                fill="transparent"
-                r="85"
-                cx="100"
-                cy="100"
-            />
-            <circle
-                class="progress-ring__circle progress-ring__progress"
-                stroke-width="12"
-                fill="transparent"
-                r="85"
-                cx="100"
-                cy="100"
-                stroke-dasharray="534.07 534.07"
-                stroke-dashoffset="0"
-                id="progressCircle"
-            />
+            <circle class="progress-ring__circle progress-ring__background" stroke-width="12" fill="transparent" r="85"
+                cx="100" cy="100" />
+            <circle class="progress-ring__circle progress-ring__progress" stroke-width="12" fill="transparent" r="85"
+                cx="100" cy="100" stroke-dasharray="534.07 534.07" stroke-dashoffset="0" id="progressCircle" />
         </svg>
         <div id="timer">00:00</div>
     </div>
 
     <button id="focusBtn">Focus</button>
     <img id="pict" src="picture.jpg" alt="Scolding grandma">
-    
+
 
     <div style="display: flex; gap: 8px; margin-top: 12px;">
         <button id="addBtn">Add</button>
     </div>
+    <div id="iconList"></div>
+
     <script src="popup.js"></script>
 </body>
 
