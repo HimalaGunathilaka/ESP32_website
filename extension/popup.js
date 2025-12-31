@@ -109,6 +109,9 @@ async function updateTimer() {
   renderTime(secs);
 }
 
+// ++++++++++++++++++++++++++++++++++++++++++++++
+// This part has the circular progress bar as well
+// ++++++++++++++++++++++++++++++++++++++++++++++
 function renderTime(secs) {
   const hours = Math.floor(secs / 3600);
   const minutes = Math.floor((secs % 3600) / 60);
@@ -116,8 +119,18 @@ function renderTime(secs) {
 
   document.getElementById("timer").textContent =
     `${String(hours).padStart(2, "0")}:` +
-    `${String(minutes).padStart(2, "0")}:` +
-    `${String(seconds).padStart(2, "0")}`;
+    `${String(minutes).padStart(2, "0")}`;
+  
+  // Update circular progress bar (max 8 hours)
+  const maxTime = 8 * 60 * 60; // 8 hours in seconds
+  const progress = Math.min(secs / maxTime, 1); // Cap at 100%
+  const circumference = 534.07;
+  const offset = circumference * (1 - progress);
+  
+  const circle = document.getElementById("progressCircle");
+  if (circle) {
+    circle.style.strokeDashoffset = offset;
+  }
 }
 
 

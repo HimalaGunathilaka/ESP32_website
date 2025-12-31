@@ -22,8 +22,7 @@ function renderTime(secs) {
 
   document.getElementById("timer").textContent =
     `${String(hours).padStart(2, "0")}:` +
-    `${String(minutes).padStart(2, "0")}:` +
-    `${String(seconds).padStart(2, "0")}`;
+    `${String(minutes).padStart(2, "0")}`;
 }
 
 
