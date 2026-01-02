@@ -1,5 +1,5 @@
-#ifndef WIFI_MANAGER_H
-#define WIFI_MANAGER_H
+#ifndef WIFI_CUSTOM_H
+#define WIFI_CUSTOM_H
 
 #include <WiFi.h>
 #include <PubSubClient.h>
