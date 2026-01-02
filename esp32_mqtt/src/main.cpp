@@ -1,7 +1,7 @@
 #include <Arduino.h>
 #include <WiFi.h>
 #include <PubSubClient.h>
-#include "wifi_manager.h"
+#include "wifi_custom.h"
 #include "display.h"
 #include "led.h"
 #include "hash.h"
