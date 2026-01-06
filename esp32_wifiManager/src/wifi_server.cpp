@@ -7,6 +7,7 @@ WebServer server(80);
 String mqttBroker = "";
 String mqttUsername = "";
 String mqttPassword = "";
+int mqttPort = 1883;
 
 // To be global 
 volatile bool buttonPressed = false;

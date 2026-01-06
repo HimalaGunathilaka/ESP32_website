@@ -10,6 +10,7 @@ extern WebServer server;
 extern String mqttBroker;
 extern String mqttUsername;
 extern String mqttPassword;
+extern int mqttPort;
 
 extern volatile bool buttonPressed;
 
