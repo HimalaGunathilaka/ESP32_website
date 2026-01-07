@@ -15,13 +15,13 @@ importScripts('mqttws31.min.js');
 
 
 const REDIRECT_RULE_ID = 1;
-const RESET_TIME = 600000; // 10 minutes
+// const RESET_TIME = 600000; // 10 minutes
 // const WS_URL = "ws://192.168.1.19:81";
 const COOLOFF_TIME = 5000;
 
 // -------------------- Init storage safely --------------------
 chrome.storage.local.get(
-    ["focusMode", "total_time", "absoluteFocusmode", "start", "block", "clientId"],
+    ["focusMode", "total_time", "absoluteFocusmode", "start", "block", "clientId", "command"],
     (data) => {
         if (data.clientId === undefined) {
             const clientId = Math.floor(Math.random() * 1e4).toString(); // random 4-digit number
@@ -39,11 +39,27 @@ chrome.storage.local.get(
         if (data.start === undefined)
             chrome.storage.local.set({ start: 0 });
 
+        // The blocked list
         if (data.block === undefined)
             chrome.storage.local.set({
                 block: [
                 ]
             })
+
+        // If a command to change not the focusmode the absolute focus mode occurs
+        // A indicator to say a signal was received.
+        if (data.command === undefined) {
+            chrome.storage.local.set({
+                command: false
+            })
+        }
+
+        if (data.source === undefined) {
+            chrome.storage.local.set({
+                source: false
+            })
+        }
+
     }
 );
 
@@ -158,25 +174,52 @@ async function disableRedirectRules() {
 let client = null;
 
 function initializeMQTT() {
-    client = new Paho.MQTT.Client("localhost", 9001, "worker-" + Math.random());
-    client.onConnectionLost = () => setTimeout(initializeMQTT, 2000);
+    client = new Paho.MQTT.Client("localhost", 9001, "worker-" + crypto.randomUUID());
 
-    client.onMessageArrived = (msg) => {
+    chrome.alarms.onAlarm.addListener(() => {
+        if (!client || !client.isConnected()); //initializeMQTT();
+    })
+    // client.onConnectionLost = () => setTimeout(initializeMQTT, 2000);
+
+    client.onMessageArrived = async (msg) => {
         const payload = msg.payloadString;
+        const topic = msg.destinationName;
+
+        switch (topic) {
+            case "focus/activate":
+                if (payload === "ACTIVATE") {
+                    chrome.storage.local.set({ focusMode: true });
+                }
+                else if (payload === "DEACTIVATE") {
+                    chrome.storage.local.set({ focusMode: false });
+                }
+
+                break;
+            case "focus/command": {
+                const { source } = await chrome.storage.local.get("source");
+
+                if (!source) {
+                    await chrome.storage.local.set({ command: true });
+
+                    if (payload === "act") {
+                        await chrome.storage.local.set({ focusMode: true });
+                    } else if (payload === "dact") {
+                        await chrome.storage.local.set({ focusMode: false });
+                    }
+                } else {
+                    await chrome.storage.local.set({ source: false });
+                }
+                break;
+            }
+        }
         console.log(payload);
-        if (payload === "ACTIVATE") {
-            chrome.storage.local.set({ focusMode: true });
-        }
-        if (payload === "DEACTIVATE") {
-            chrome.storage.local.set({ focusMode: false });
-        }
     };
 
     client.connect({
         userName: "himala",
         password: "123",
         keepAliveInterval: 60, // in seconds
-        onSuccess: () => client.subscribe("focus/activate"),
+        onSuccess: () => client.subscribe("focus/#"),
         onFailure: () => setTimeout(initializeMQTT, 2000),
     });
 }
@@ -194,16 +237,43 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
     // console.log("Start of observer");
     if (area !== "local") return;
 
+    const abs = await chrome.storage.local.get("absoluteFocusmode");
     if (changes.block) {
-        const abs = await chrome.storage.local.get("absoluteFocusmode");
-        if(abs.absoluteFocusmode) await redirectCurrentTab();
+        if (abs.absoluteFocusmode) await redirectCurrentTab();
     }
+
+    if (changes.absoluteFocusmode) {
+        console.log("abs was changed!");
+
+        const { command } = await chrome.storage.local.get("command");
+
+        console.log(command)
+
+        if (command === false && client && client.isConnected()) {
+            const isEnabled = changes.absoluteFocusmode.newValue;
+
+            const msg = new Paho.MQTT.Message(isEnabled ? "act" : "dact");
+            msg.destinationName = "focus/command";
+            client.send(msg);
+
+            await chrome.storage.local.set({ source: true });
+
+            console.log(isEnabled ? "act sent" : "dact sent");
+            // return;
+        }
+
+        // reset command flag if it was set
+        if (command) {
+            await chrome.storage.local.set({ command: false });
+        }
+    }
+
 
     if (!changes.focusMode) return;
 
     // console.log("Inside")
     const newFocus = changes.focusMode.newValue;
-    const source = changes.source?.newValue;
+    // const source = changes.source?.newValue;
     const { start } = await chrome.storage.local.get("start");
 
 
@@ -256,7 +326,9 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
                 const totalTime = data.total_time ?? 0;
                 const clientId = data.clientId;
 
-                const payload = `d|${clientId}|${totalTime}`;
+                // Flag to deactivate `d` and total focus time is being sent. 
+                // Client id is not used
+                const payload = `d|${totalTime}`;
 
                 const msg = new Paho.MQTT.Message(payload);
                 msg.destinationName = "focus/activate";
