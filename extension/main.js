@@ -193,7 +193,14 @@ function initializeMQTT() {
                 else if (payload === "DEACTIVATE") {
                     chrome.storage.local.set({ focusMode: false });
                 }
-
+                else if (payload.startsWith("d|")) {
+                    // Handle deactivation with time data
+                    const timeValue = parseInt(payload.split("|")[1], 10);
+                    const { src } = await chrome.storage.local.get("src");
+                    if (!src) {
+                        await chrome.storage.local.set({ total_time: timeValue });
+                    }
+                }
                 break;
             case "focus/command": {
                 const { source } = await chrome.storage.local.get("source");
@@ -324,7 +331,7 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
         if (client && client.isConnected()) {
             chrome.storage.local.get(["total_time", "clientId"], (data) => {
                 const totalTime = data.total_time ?? 0;
-                const clientId = data.clientId;
+                // const clientId = data.clientId;
 
                 // Flag to deactivate `d` and total focus time is being sent. 
                 // Client id is not used
@@ -343,6 +350,7 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
 // Keep alive - Since the extension it self can become idle (Even if the inbuilt heart beat of mqtt)
 // ===============================
 chrome.alarms.create("mqttPing", { periodInMinutes: 0.5 });
+
 chrome.alarms.onAlarm.addListener(() => {
     if (!client || !client.isConnected()) initializeMQTT();
 });
