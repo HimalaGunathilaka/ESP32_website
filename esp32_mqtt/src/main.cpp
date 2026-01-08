@@ -182,7 +182,6 @@ void setup()
 
   displayInit();
   setDisplayNumber(0);
-
   initLED();
 }
 

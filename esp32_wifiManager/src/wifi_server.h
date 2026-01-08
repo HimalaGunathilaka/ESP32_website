@@ -12,7 +12,7 @@ extern String mqttUsername;
 extern String mqttPassword;
 extern int mqttPort;
 
-extern volatile bool buttonPressed;
+extern volatile bool buttonMQTTPressed;
 
 
 String createHTML();

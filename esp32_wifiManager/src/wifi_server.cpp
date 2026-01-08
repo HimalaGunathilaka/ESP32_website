@@ -10,7 +10,7 @@ String mqttPassword = "";
 int mqttPort = 1883;
 
 // To be global 
-volatile bool buttonPressed = false;
+volatile bool buttonMQTTPressed = false;
 
 
 String createHTML()

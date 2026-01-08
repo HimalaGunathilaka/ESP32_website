@@ -6,6 +6,11 @@
 CRGB leds[NUM_LEDS];
 
 // -------------------------
+// Total time tracking
+// -------------------------
+long total_time;
+
+// -------------------------
 // Initialize LED Matrix
 // -------------------------
 void initLED() {
