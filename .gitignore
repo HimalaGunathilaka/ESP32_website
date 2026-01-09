@@ -7,3 +7,6 @@
 
 /mosquitto_server/data
 /mosquitto_server/log
+
+
+/server/node_modules
