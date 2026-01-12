@@ -118,13 +118,14 @@ async function updateTimer() {
       "start"
     ]);
 
-  let secs = total_time;
-
+  // Current session time
+  let sessionSecs = 0;
   if (absoluteFocusmode && start) {
-    secs += Math.floor((Date.now() - start) / 1000);
+    sessionSecs = Math.floor((Date.now() - start) / 1000);
   }
   
-  renderTime(secs);
+  renderTime(sessionSecs);
+  renderTotalTime(total_time + sessionSecs);
 }
 
 // ++++++++++++++++++++++++++++++++++++++++++++++
@@ -140,7 +141,7 @@ function renderTime(secs) {
     `${String(minutes).padStart(2, "0")}`;
     
   // Update circular progress bar (max 8 hours)
-  const maxTime = 8 * 60 * 60; // 8 hours in seconds
+  const maxTime = 25 * 60; // 25 minutes in seconds
   const progress = Math.min(secs / maxTime, 1); // Cap at 100%
   const circumference = 534.07;
   const offset = circumference * (1 - progress);
@@ -154,6 +155,17 @@ function renderTime(secs) {
 
 updateTimer();
 setInterval(updateTimer, 1000);
+
+function renderTotalTime(secs) {
+  const hours = Math.floor(secs / 3600);
+  const minutes = Math.floor((secs % 3600) / 60);
+  const seconds = secs % 60;
+
+  const el = document.getElementById("totalTime");
+  if (el) {
+    el.textContent = `Total: ${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+  }
+}
 
 
 

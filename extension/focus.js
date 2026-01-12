@@ -6,7 +6,9 @@ async function updateTimer() {
       "start"
     ]);
 
-  let secs = total_time;
+  // let secs = total_time;
+
+  let secs = 0;
 
   if (absoluteFocusmode && start) {
     secs += Math.floor((Date.now() - start) / 1000);

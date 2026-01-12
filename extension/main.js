@@ -294,14 +294,25 @@ function initializeMQTT() {
         password: "123",
         keepAliveInterval: 60, // in seconds
         onSuccess: async () => {
-            client.subscribe("focus/#");
-            // +++++++++++++++++++++++++++++++++++++++++++++++++++
-            // Initial fetch for the block list from mongodb
-            // +++++++++++++++++++++++++++++++++++++++++++++++++++
-            await chrome.storage.local.set({block:[]});
-            const fetchBlockList = new Paho.MQTT.Message("g|----");
-            fetchBlockList.destinationName = "focus/block/extension";
-            client.send(fetchBlockList);
+            try {
+                if (!client || !client.isConnected()) {
+                    console.warn("Client not connected in onSuccess, retrying...");
+                    setTimeout(initializeMQTT, 2000);
+                    return;
+                }
+                
+                client.subscribe("focus/#");
+                // +++++++++++++++++++++++++++++++++++++++++++++++++++
+                // Initial fetch for the block list from mongodb
+                // +++++++++++++++++++++++++++++++++++++++++++++++++++
+                await chrome.storage.local.set({block:[]});
+                const fetchBlockList = new Paho.MQTT.Message("g|----");
+                fetchBlockList.destinationName = "focus/block/extension";
+                client.send(fetchBlockList);
+            } catch (err) {
+                console.error("MQTT onSuccess error:", err);
+                setTimeout(initializeMQTT, 2000);
+            }
 
         },
         onFailure: () => setTimeout(initializeMQTT, 2000),
