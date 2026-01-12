@@ -112,27 +112,30 @@ async function resetTotal_time() {
 // -------------------- Redirect logic --------------------
 const REDIRECT_RULE_BASE_ID = 1000; // base id to avoid collisions
 
+
 async function enableRedirectRules() {
     const { block = [] } = await chrome.storage.local.get("block");
 
-    // Remove previous redirect rules
+    // Remove previous redirect rules (use index-based IDs)
     const removeRuleIds = block.map((_, i) => REDIRECT_RULE_BASE_ID + i);
 
-    // Create redirect rules for each blocked site
-    const addRules = block.map((site, i) => ({
-        id: REDIRECT_RULE_BASE_ID + hash(site),
-        priority: 1,
-        action: {
-            type: "redirect",
-            redirect: {
-                extensionPath: "/focus.html"
+    // Create redirect rules for each blocked site (use index-based IDs for uniqueness)
+    const addRules = block
+        .filter(site => site) // Filter out empty/null entries
+        .map((site, i) => ({
+            id: REDIRECT_RULE_BASE_ID + i,
+            priority: 1,
+            action: {
+                type: "redirect",
+                redirect: {
+                    extensionPath: "/focus.html"
+                }
+            },
+            condition: {
+                urlFilter: site,               // ← uses block entries
+                resourceTypes: ["main_frame"]
             }
-        },
-        condition: {
-            urlFilter: site,               // ← uses block entries
-            resourceTypes: ["main_frame"]
-        }
-    }));
+        }));
 
     await chrome.declarativeNetRequest.updateDynamicRules({
         removeRuleIds,
@@ -180,6 +183,7 @@ async function disableRedirectRules() {
 // ======================================================
 // ======================================================
 let client = null;
+let pendingBlockList = []; // Accumulator for incoming block list from server
 
 function initializeMQTT() {
     client = new Paho.MQTT.Client("localhost", 9001, "worker-" + crypto.randomUUID());
@@ -259,18 +263,25 @@ function initializeMQTT() {
                 break;
             }
             case "focus/block/server": {
+                console.log(payload);
                 if (payload[0] === "s") {
+                    // Start of block list - clear accumulator
+                    pendingBlockList = [];
                     initBlockMutex = false;
                     return;
                 } else if (payload[0] === "e") {
+                    // End of block list - save all at once
+                    await chrome.storage.local.set({ block: pendingBlockList });
+                    console.log("Block list loaded:", pendingBlockList);
                     initBlockMutex = true;
                     return;
                 }
 
-                console.log(payload);
-                const { block = [] } = await chrome.storage.local.get("block");
-                block.push(payload.slice(2));
-                chrome.storage.local.set({ block });
+                // Accumulate URLs in memory (not storage) to avoid race condition
+                const url = payload.slice(2);
+                if (url && !pendingBlockList.includes(url)) {
+                    pendingBlockList.push(url);
+                }
 
                 break;
             }
@@ -282,9 +293,12 @@ function initializeMQTT() {
         userName: "himala",
         password: "123",
         keepAliveInterval: 60, // in seconds
-        onSuccess: () => {
+        onSuccess: async () => {
             client.subscribe("focus/#");
             // +++++++++++++++++++++++++++++++++++++++++++++++++++
+            // Initial fetch for the block list from mongodb
+            // +++++++++++++++++++++++++++++++++++++++++++++++++++
+            await chrome.storage.local.set({block:[]});
             const fetchBlockList = new Paho.MQTT.Message("g|----");
             fetchBlockList.destinationName = "focus/block/extension";
             client.send(fetchBlockList);
@@ -314,7 +328,7 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
         if (urlMutex === "mqtt") {
             // This change came from MQTT, don't republish (prevents echo loop)
             await chrome.storage.local.set({ urlMutex: "none" });
-        } else {
+        } else if (client && client.isConnected()) {
             // This change is local, publish it to MQTT
             await chrome.storage.local.set({ urlMutex: "local" }); // Mark as local-originated
             const oldArr = changes.block.oldValue || [];
@@ -342,11 +356,11 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
     }
 
     if (changes.absoluteFocusmode) {
-        console.log("abs was changed!");
+        // console.log("abs was changed!");
 
         const { command } = await chrome.storage.local.get("command");
 
-        console.log(command)
+        // console.log(command)
 
         if (command === false && client && client.isConnected()) {
             const isEnabled = changes.absoluteFocusmode.newValue;
@@ -357,7 +371,7 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
 
             await chrome.storage.local.set({ source: true });
 
-            console.log(isEnabled ? "act sent" : "dact sent");
+            // console.log(isEnabled ? "act sent" : "dact sent");
             // return;
         }
 

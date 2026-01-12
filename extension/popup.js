@@ -2,9 +2,10 @@ let focusMode = false;
 
 // -------------------- Toggle focus --------------------
 async function focus() {
-  chrome.storage.local.set({ focusMode: !focusMode });
-  // console.log("Pressed!")
-  // console.log("Focus value:", focusMode)
+  // Always read current storage value to avoid sync issues
+  const { focusMode: current } = await chrome.storage.local.get("focusMode");
+  console.log("Current focusMode:", current, "-> Setting to:", !current);
+  chrome.storage.local.set({ focusMode: !current });
 }
 
 // Display image only when try to deactivate focus while in cool off
