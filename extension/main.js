@@ -21,7 +21,7 @@ const COOLOFF_TIME = 5000;
 
 // -------------------- Init storage safely --------------------
 chrome.storage.local.get(
-    ["focusMode", "total_time", "absoluteFocusmode", "start", "block", "clientId", "command"],
+    ["focusMode", "total_time", "absoluteFocusmode", "start", "block", "clientId", "command", "urlMutex"],
     (data) => {
         if (data.clientId === undefined) {
             const clientId = Math.floor(Math.random() * 1e4).toString(); // random 4-digit number
@@ -45,6 +45,12 @@ chrome.storage.local.get(
                 block: [
                 ]
             })
+
+
+        if (data.urlMutex === undefined)
+            chrome.storage.local.set({
+                urlMutex: false
+            });
 
         // If a command to change not the focusmode the absolute focus mode occurs
         // A indicator to say a signal was received.
@@ -218,6 +224,37 @@ function initializeMQTT() {
                 }
                 break;
             }
+            case "focus/block/extension": {
+                const { urlMutex } = await chrome.storage.local.get("urlMutex");
+                console.log("urlMutex:", urlMutex);
+
+                if (urlMutex) {
+                    await chrome.storage.local.set({ urlMutex: false });
+                } else {
+                    const result = await chrome.storage.local.get("block");
+                    const block = result.block || [];
+                    const event = payload[0];
+                    const url = payload.slice(2);
+
+                    console.log("event:", event);
+                    console.log("url:", url);
+
+                    // Check if URL already exists (prevent duplicates and loops)
+                    const urlExists = block.includes(url);
+
+                    if (event === 'a' && !urlExists) {
+                        block.push(url);
+                        await chrome.storage.local.set({ urlMutex: true }); // Set mutex BEFORE storage change
+                        chrome.storage.local.set({ block: block });
+                    } else if (event === 'd' && urlExists) {
+                        const index = block.indexOf(url);
+                        block.splice(index, 1);
+                        await chrome.storage.local.set({ urlMutex: true }); // Set mutex BEFORE storage change
+                        chrome.storage.local.set({ block: block });
+                    }
+                }
+                break;
+            }
         }
         console.log(payload);
     };
@@ -246,6 +283,27 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
 
     const abs = await chrome.storage.local.get("absoluteFocusmode");
     if (changes.block) {
+        await chrome.storage.local.set({ urlMutex: true });
+        const oldArr = changes.block.oldValue || [];
+        const newArr = changes.block.newValue || [];
+
+        const lenOld = oldArr.length;
+        const lenNew = newArr.length;
+
+        // publish the changes
+        if (lenOld < lenNew) {
+            for (let i = lenOld; i < lenNew; i++) {
+                const msgURL = new Paho.MQTT.Message(`a|${newArr[i]}`);
+                msgURL.destinationName = "focus/block/extension";
+                client.send(msgURL);
+            }
+        } else {
+            for (let i = lenNew; i < lenOld; i++) {
+                const msgURL = new Paho.MQTT.Message(`d|${oldArr[i]}`);
+                msgURL.destinationName = "focus/block/extension";
+                client.send(msgURL);
+            }
+        }
         if (abs.absoluteFocusmode) await redirectCurrentTab();
     }
 

@@ -26,7 +26,7 @@ function initializeMQTT() {
 
     client_MQTT.on("connect", () => {
         console.log("MQTT connected!");
-        client_MQTT.subscribe("focus/block/receive", (err) => {
+        client_MQTT.subscribe("focus/block/extension", (err) => {
             if (err) {
                 console.error("MQTT subscription error:", err);
             }
@@ -55,13 +55,13 @@ function initializeMQTT() {
                 break;
             case "g":
                 const blocked = await getAll_BLOCKED();
-                client_MQTT.publish("focus/block/send",
+                client_MQTT.publish("focus/block/server",
                     "s|blocklist",);
 
                 blocked.forEach(link => {
-                    client_MQTT.publish("focus/block/send", `a|${link}`);
+                    client_MQTT.publish("focus/block/server", `a|${link}`);
                 });
-                client_MQTT.publish("focus/block/send", "e|blocklist");
+                client_MQTT.publish("focus/block/server", "e|blocklist");
                 break;
         }
 

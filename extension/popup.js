@@ -86,7 +86,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     chrome.storage.local.get("block", (data) => {
       const blocked = data.block ?? [];
 
-      if (!blocked.includes(hostname)) {
+      if (!blocked.includes(hostname) ) {
         blocked.push(hostname);
         chrome.storage.local.set({ block: blocked }, () => {
           console.log("Updated block list:", blocked);
