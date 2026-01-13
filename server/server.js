@@ -10,7 +10,7 @@ const { MongoClient } = require('mongodb');
 
 const client_MONGO = new MongoClient(MONGO_URI, {});
 
-let db, blockCol;
+let db, blockCol, userCol;
 
 // ============================================================
 // MQTT
@@ -63,6 +63,11 @@ function initializeMQTT() {
                 });
                 client_MQTT.publish("focus/block/server", "e|blocklist");
                 break;
+            case "t":
+                const day = url.slice(0, 10);
+                const total_time = url.slice(11);
+                await putTotalTime(total_time, day);
+                break;
         }
 
     });
@@ -78,6 +83,7 @@ async function initMongo() {
     await client_MONGO.connect();
     db = client_MONGO.db("testUser");
     blockCol = db.collection("blockList");
+    userCol = db.collection("users");
     await blockCol.createIndex({ url: 1 }, { unique: true });
     console.log("MongoDB connected!");
 }
@@ -129,6 +135,15 @@ async function getAll_BLOCKED() {
         return [];
     }
 }
+
+async function putTotalTime(total_time, day) {
+    try {
+        const res = await userCol.insertOne({ date: day, total_time: total_time });
+        console.log("Total time is saved!!");
+    } catch (err) {
+        console.error("Insert Error!!");
+    }
+}
 // Output
 /* 
 [
@@ -146,4 +161,14 @@ app.listen(port, async () => {
     console.log(`Server listening at http://localhost:${port}`);
     await initMongo();
     initializeMQTT();
+});
+
+
+// ===========================================================
+// Crone job for resetting time
+// ===========================================================
+const cron = require('node-cron');
+
+cron.schedule('59 23 * * *', () => {
+    client_MQTT.publish("focus/server/totalTime", "get");
 });
