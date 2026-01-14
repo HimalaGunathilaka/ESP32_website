@@ -79,6 +79,15 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
   
   addBtn.addEventListener("click", async () => {
+    // Check if focus mode is active
+    const { absoluteFocusmode } = await chrome.storage.local.get("absoluteFocusmode");
+    if (absoluteFocusmode) {
+      const tooltip = document.getElementById("addTooltip");
+      tooltip.classList.add("show");
+      setTimeout(() => tooltip.classList.remove("show"), 2000);
+      return;
+    }
+
     const hostname = await getActiveHostname();
     if (!hostname) return;
 

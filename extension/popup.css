@@ -109,3 +109,24 @@ body {
     color: #333;
     margin: 0;
 }
+
+.tooltip {
+    display: none;
+    padding: 6px 12px;
+    background: #f5576c;
+    color: white;
+    border-radius: 4px;
+    font-size: 12px;
+    text-align: center;
+    margin-top: 4px;
+    animation: fadeIn 0.3s;
+}
+
+.tooltip.show {
+    display: block;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-5px); }
+    to { opacity: 1; transform: translateY(0); }
+}
