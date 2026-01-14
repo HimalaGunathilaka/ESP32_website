@@ -12,6 +12,8 @@ extern String mqttUsername;
 extern String mqttPassword;
 extern int mqttPort;
 
+extern bool MQTT_DETAILS_PRESENT;
+
 extern volatile bool buttonMQTTPressed;
 
 
@@ -22,5 +24,7 @@ void handle_onConnect();
 void handle_NotFound();
 
 void initialize_server();
+void initialize_pref();
+void saveMQTT();
 
 #endif

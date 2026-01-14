@@ -1,17 +1,80 @@
 #include <WiFiManager.h>
 #include <WebServer.h>
+#include <Preferences.h>
+
+// For broker link
+#define BROKER 64
+
+// For username
+#define USER 64
+
+// For password
+#define PASS 64
 
 WiFiManager wm;
 WebServer server(80);
 
+Preferences prefs;
+
 String mqttBroker = "";
 String mqttUsername = "";
 String mqttPassword = "";
+
+char brokerFile[BROKER + 1] = "";
+char usernameFile[USER + 1] = "";
+char passFile[PASS + 1] = "";
+
 int mqttPort = 1883;
 
-// To be global 
-volatile bool buttonMQTTPressed = false;
+bool MQTT_DETAILS_PRESENT = false;
 
+// ==============================================================
+// File system logic
+void initialize_pref()
+{
+  prefs.begin("mqtt", true); // This will be opened in nvs partition
+  MQTT_DETAILS_PRESENT = prefs.isKey("broker") && prefs.isKey("user") && prefs.isKey("pass");
+
+  if (MQTT_DETAILS_PRESENT)
+  {
+    // Load saved credentials into the String variables used by MQTT
+    prefs.getString("broker", brokerFile, sizeof(brokerFile));
+    prefs.getString("user", usernameFile, sizeof(usernameFile));
+    prefs.getString("pass", passFile, sizeof(passFile));
+
+    // Copy to String variables for MQTT use
+    mqttBroker = String(brokerFile);
+    mqttUsername = String(usernameFile);
+    mqttPassword = String(passFile);
+
+    // Print out the loaded credentials
+    Serial.println("MQTT credentials found:");
+    Serial.print("Broker: ");
+    Serial.println(brokerFile);
+    Serial.print("Username: ");
+    Serial.println(usernameFile);
+    Serial.print("Password: ");
+    Serial.println(passFile);
+  }
+  prefs.end();
+}
+
+void saveMQTT(const char *b, const char *u, const char *p)
+{
+  prefs.begin("mqtt", false);
+  prefs.putString("broker", b);
+  prefs.putString("user", u);
+  prefs.putString("pass", p);
+  prefs.end();
+
+  // Mark that credentials are now present
+  MQTT_DETAILS_PRESENT = true;
+}
+
+// =================================================================
+
+// To be global
+volatile bool buttonMQTTPressed = false;
 
 String createHTML()
 {
@@ -57,6 +120,8 @@ void handle_submit()
     Serial.println("Broker: " + mqttBroker);
     Serial.println("Username: " + mqttUsername);
     Serial.println("Password: " + mqttPassword);
+
+    saveMQTT(mqttBroker.c_str(), mqttUsername.c_str(), mqttPassword.c_str());
 
     server.send(200, "text/html", "<html><body><h1>MQTT Settings Saved!</h1><p>Broker: " + mqttBroker + "</p><a href='/'>Back</a></body></html>");
   }

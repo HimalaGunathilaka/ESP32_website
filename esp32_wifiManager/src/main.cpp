@@ -29,13 +29,15 @@ void setup()
                   handleFocusButtonInterrupt,
                   RISING);
 
+  // Check for file details
+  initialize_pref();
+// This order valid to get MQTT_DETAILS_PRESENT initialized before checking
   initialize_server();
 
   displayInit();
   setDisplayNumber(0);
   initLED();
 }
-
 
 void loop()
 {
@@ -45,7 +47,6 @@ void loop()
     return;
     // If goes to return below will not be achieved.
   }
-
 
   tryReconnecting_MQTT();
 
@@ -61,7 +62,7 @@ void loop()
   buttonPress_MQTT();
 
   // Show and handle the mqtt website
-  if (count == 0)
+  if (count == 0 || !MQTT_DETAILS_PRESENT)
     server.handleClient();
 
   buttonPress_focus();

@@ -166,16 +166,25 @@ async function redirectCurrentTab() {
 }
 
 
-async function disableRedirectRules() {
-    const { block = [] } = await chrome.storage.local.get("block");
+// async function disableRedirectRules() {
+//     const { block = [] } = await chrome.storage.local.get("block");
 
-    const removeRuleIds = block.map((_, i) => REDIRECT_RULE_BASE_ID + i);
+//     const removeRuleIds = block.map((_, i) => REDIRECT_RULE_BASE_ID + i);
 
-    await chrome.declarativeNetRequest.updateDynamicRules({
-        removeRuleIds
-    });
+//     await chrome.declarativeNetRequest.updateDynamicRules({
+//         removeRuleIds
+//     });
+// }
+
+async function clearAllRedirectRules() {
+    const rules = await chrome.declarativeNetRequest.getDynamicRules();
+    const ids = rules.map(r => r.id);
+    if (ids.length) {
+        await chrome.declarativeNetRequest.updateDynamicRules({
+            removeRuleIds: ids
+        });
+    }
 }
-
 
 // ======================================================
 // ======================================================
@@ -285,6 +294,16 @@ function initializeMQTT() {
 
                 break;
             }
+            case "focus/server/totalTime": {
+                const { totalTime } = await chrome.storage.local.get("totalTime");
+                const currentDate = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+                const totalTimeMsg = new Paho.MQTT.Message(`t|${currentDate}|${totalTime}`);
+                totalTimeMsg.destinationName = "focus/block/extension";
+                client.send(totalTimeMsg);
+
+                await chrome.storage.local.set({ totalTime: 0 });
+                break;
+            }
         }
         console.log(payload);
     };
@@ -300,12 +319,12 @@ function initializeMQTT() {
                     setTimeout(initializeMQTT, 2000);
                     return;
                 }
-                
+
                 client.subscribe("focus/#");
                 // +++++++++++++++++++++++++++++++++++++++++++++++++++
                 // Initial fetch for the block list from mongodb
                 // +++++++++++++++++++++++++++++++++++++++++++++++++++
-                await chrome.storage.local.set({block:[]});
+                await chrome.storage.local.set({ block: [] });
                 const fetchBlockList = new Paho.MQTT.Message("g|----");
                 fetchBlockList.destinationName = "focus/block/extension";
                 client.send(fetchBlockList);
@@ -335,7 +354,7 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
     const abs = await chrome.storage.local.get("absoluteFocusmode");
     if (changes.block && initBlockMutex) {
         const { urlMutex } = await chrome.storage.local.get("urlMutex");
-        
+
         if (urlMutex === "mqtt") {
             // This change came from MQTT, don't republish (prevents echo loop)
             await chrome.storage.local.set({ urlMutex: "none" });
@@ -437,7 +456,7 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
         }
 
         // ---- Deactivation allowed ----
-        await disableRedirectRules();
+        await clearAllRedirectRules();
         await chrome.storage.local.set({ absoluteFocusmode: false });
         await chrome.storage.local.set({ focusMode: false });
 
