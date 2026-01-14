@@ -5,6 +5,22 @@
 #include "led.h"
 #include "display.h"
 
+int sessionCount = 0;
+int lastSessionCount = 0;
+const unsigned long sessionInterval = 60000; // 1 minute in milliseconds
+
+#define BUZZER_PIN 23
+
+#define BUZZER_CHANNEL 0
+#define BUZZER_RESOLUTION 8
+
+void beep(unsigned int freq, unsigned int durationMs)
+{
+  ledcWriteTone(BUZZER_CHANNEL, freq);
+  delay(durationMs);
+  ledcWriteTone(BUZZER_CHANNEL, 0);
+}
+
 // ====================================================
 // ====================================================
 // ====================================================
@@ -13,6 +29,11 @@ void setup()
   Serial.begin(115200);
 
   total_time = 0;
+
+  // Buzzer
+  ledcSetup(BUZZER_CHANNEL, 2000, BUZZER_RESOLUTION);
+  ledcAttachPin(BUZZER_PIN, BUZZER_CHANNEL);
+  ledcWrite(BUZZER_CHANNEL, 0);
 
   // LEDs
   pinMode(ONBOARD_LED, OUTPUT);
@@ -31,7 +52,7 @@ void setup()
 
   // Check for file details
   initialize_pref();
-// This order valid to get MQTT_DETAILS_PRESENT initialized before checking
+  // This order valid to get MQTT_DETAILS_PRESENT initialized before checking
   initialize_server();
 
   displayInit();
@@ -66,6 +87,33 @@ void loop()
     server.handleClient();
 
   buttonPress_focus();
+
+  if (focusMode)
+  {
+    const unsigned long now = millis() - lastSession;
+    const int currentSessionCount = now / sessionInterval;
+    if (currentSessionCount > lastSessionCount)
+    {
+      sessionCount++;
+      lastSessionCount = currentSessionCount;
+
+      // Beep when session ends
+      beep(2000, 150); // 2kHz for 150 ms
+
+      // Light up one additional LED
+      if (sessionCount < NUM_LEDS)
+      {
+        leds[sessionCount - 1] = CRGB::Red;
+      }
+    }
+  }
+  else
+  {
+    // Reset counters when focus is off
+    sessionCount = 0;
+    lastSessionCount = 0;
+    clearLED();
+  }
 
   showLED();
   displayUpdate();

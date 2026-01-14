@@ -20,7 +20,7 @@ extern WiFiClient espClient;
 extern PubSubClient client;
 
 extern int count;
-extern int count_focus;
+// extern int count_focus;
 
 extern unsigned long lastMQTTAttempt;
 extern const unsigned long mqttRetryInterval;

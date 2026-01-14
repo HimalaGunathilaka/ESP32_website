@@ -14,6 +14,7 @@ extern String mqttPassword;
 
 extern unsigned long lastMQTTAttempt;
 extern const unsigned long mqttRetryInterval;
+extern unsigned long lastSession;
 
 // -------------------------
 // Function Declarations
@@ -23,5 +24,7 @@ void attemptMQTT();
 void tryReconnecting_MQTT();
 void applyFocusState();
 void handleFocusEnd(char *payload);
+
+
 
 #endif

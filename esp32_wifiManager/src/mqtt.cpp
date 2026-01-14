@@ -6,11 +6,13 @@
 #include "led.h"
 #include "display.h"
 
+
 // -------------------------
 // MQTT Timing Variables
 // -------------------------
 unsigned long lastMQTTAttempt = 0;
 const unsigned long mqttRetryInterval = 5000;
+unsigned long lastSession = 0;
 
 // ---------------------------------------------
 // MQTT
@@ -27,17 +29,28 @@ void callback(char *topic, byte *payload, unsigned int length)
 
   if (strcmp(msg, "activate") == 0)
   {
-    if (!focusMode)
-      count_focus++;
+    // if (!focusMode)
+    //   count_focus++;
     focusMode = true;
+    lastSession = millis();
     applyFocusState();
   }
   else if (strncmp(msg, "d|", 2) == 0)
   {
     focusMode = false;
+    lastSession = 0;
     handleFocusEnd(msg);
     applyFocusState();
   }
+
+
+  // if (strcmp(topic, "focus/activate") == 0)
+  // {
+  // }
+  // else if (strcmp(topic, "focus/session"))
+  // {
+    
+  // }
 }
 
 // Reconnecting mqtt
@@ -54,7 +67,8 @@ void attemptMQTT()
                      mqttPassword.c_str()))
   {
     Serial.println("connected");
-    client.subscribe(topic);
+    client.subscribe("focus/activate");
+    // client.subscribe("focus/session");
     digitalWrite(ONBOARD_LED, HIGH);
   }
   else
@@ -65,12 +79,12 @@ void attemptMQTT()
   }
 }
 
-
-void tryReconnecting_MQTT(){
+void tryReconnecting_MQTT()
+{
   if (!client.connected() && count == 1)
   {
     unsigned long now = millis();
-  
+
     if (now - lastMQTTAttempt > mqttRetryInterval)
     {
       lastMQTTAttempt = now;
@@ -79,8 +93,6 @@ void tryReconnecting_MQTT(){
     }
   }
 }
-
-
 
 // -------------------------------------------
 // Functions
@@ -91,12 +103,12 @@ void applyFocusState()
   {
     digitalWrite(LED_INDICATOR, HIGH);
 
-    int row = (count_focus - 1) % 9;
+    // int row = (count_focus - 1) % 9;
 
-    if (row == 8)
-      clearLED();
-    else
-      setRow(row, CRGB::Red);
+    // if (row == 8)
+    //   clearLED();
+    // else
+    //   setRow(row, CRGB::Red);
 
     Serial.println("Focus MODE ON");
   }
@@ -122,7 +134,5 @@ void handleFocusEnd(char *payload)
     // Serial.println(result);
   }
 }
-
-
 
 #endif

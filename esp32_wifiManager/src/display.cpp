@@ -5,7 +5,8 @@
 // -------------------------
 const int clk = 22;   // SCK
 const int latch = 21; // RCK 
-const int data = 23;  // DIO
+// const int data = 23;  // DIO
+const int data = 25; // Temporarily to use buzzer
 
 // -------------------------
 // 7-segment encoding for digits 0–9, plus blank
