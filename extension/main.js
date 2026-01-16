@@ -303,13 +303,13 @@ function initializeMQTT() {
                 break;
             }
             case "focus/server/totalTime": {
-                const { totalTime } = await chrome.storage.local.get("totalTime");
+                const { total_time } = await chrome.storage.local.get("total_time");
                 const currentDate = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
-                const totalTimeMsg = new Paho.MQTT.Message(`t|${currentDate}|${totalTime}`);
+                const totalTimeMsg = new Paho.MQTT.Message(`t|${currentDate}|${total_time}`);
                 totalTimeMsg.destinationName = "focus/block/extension";
                 client.send(totalTimeMsg);
 
-                await chrome.storage.local.set({ totalTime: 0 });
+                await chrome.storage.local.set({ total_time: 0 });
                 break;
             }
         }

@@ -70,6 +70,7 @@ function initializeMQTT() {
             case "t":
                 const day = url.slice(0, 10);
                 const total_time = url.slice(11);
+                console.log(total_time);
                 await putTotalTime(total_time, day);
                 break;
         }
@@ -186,6 +187,6 @@ app.listen(port, async () => {
 // ===========================================================
 const cron = require('node-cron');
 
-cron.schedule('50 13 * * *', () => {
+cron.schedule('34 15 * * *', () => {
     client_MQTT.publish("focus/server/totalTime", "get");
 });
