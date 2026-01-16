@@ -8,9 +8,13 @@ const port = 8080;
 
 const { MongoClient } = require('mongodb');
 
-const client_MONGO = new MongoClient(MONGO_URI, {});
+const client_MONGO = new MongoClient(MONGO_URI, {
+    tlsAllowInvalidCertificates: false,
+    tlsAllowInvalidHostnames: false,
+    serverSelectionTimeoutMS: 30000,
+});
 
-let db, blockCol, userCol;
+let db, userCol;
 
 // ============================================================
 // MQTT
@@ -82,9 +86,13 @@ function initializeMQTT() {
 async function initMongo() {
     await client_MONGO.connect();
     db = client_MONGO.db("testUser");
-    blockCol = db.collection("blockList");
     userCol = db.collection("users");
-    await blockCol.createIndex({ url: 1 }, { unique: true });
+    // Ensure the user document exists
+    await userCol.updateOne(
+        { userId: "himala" },
+        { $setOnInsert: { userId: "himala", blockList: [], total_time: {} } },
+        { upsert: true }
+    );
     console.log("MongoDB connected!");
 }
 
@@ -102,23 +110,28 @@ app.get('/', (req, res) => {
 // =========================================================
 
 async function putDocument_BLOCKED(url) {
-
     try {
-        await blockCol.insertOne({ url: url });
-        console.log(`${url} was submitted!`);
-    } catch (err) {
-        if (err.code === 11000) {
-            console.log(`${url} already exist`);
+        const result = await userCol.updateOne(
+            { userId: "himala", blockList: { $ne: url } },
+            { $addToSet: { blockList: url } }
+        );
+        if (result.modifiedCount > 0) {
+            console.log(`${url} was submitted!`);
         } else {
-            console.error("Insert error:", err);
+            console.log(`${url} already exists`);
         }
+    } catch (err) {
+        console.error("Insert error:", err);
     }
 }
 
 async function removeDocument_BLOCKED(url) {
     try {
-        const res = await blockCol.deleteMany({ url: url });
-        console.log(`${url} was removed (${res.deletedCount})`)
+        const res = await userCol.updateOne(
+            { userId: "himala" },
+            { $pull: { blockList: url } }
+        );
+        console.log(`${url} was removed (${res.modifiedCount} modified)`);
     } catch (err) {
         console.error("Delete error:", err);
     }
@@ -126,10 +139,11 @@ async function removeDocument_BLOCKED(url) {
 
 async function getAll_BLOCKED() {
     try {
-        const docs = await blockCol
-            .find({}, { projection: { _id: 0, url: 1 } }
-            ).toArray();
-        return docs.map(docs => docs.url);
+        const user = await userCol.findOne(
+            { userId: "himala" },
+            { projection: { _id: 0, blockList: 1 } }
+        );
+        return user ? user.blockList : [];
     } catch (err) {
         console.error("Fetch error:", err);
         return [];
@@ -138,10 +152,13 @@ async function getAll_BLOCKED() {
 
 async function putTotalTime(total_time, day) {
     try {
-        const res = await userCol.insertOne({ date: day, total_time: total_time });
-        console.log("Total time is saved!!");
+        const res = await userCol.updateOne(
+            { userId: "himala" },
+            { $set: { [`total_time.${day}`]: parseInt(total_time) } }
+        );
+        console.log(`Total time for ${day} is saved: ${total_time}`);
     } catch (err) {
-        console.error("Insert Error!!");
+        console.error("Insert Error:", err);
     }
 }
 // Output
@@ -169,6 +186,6 @@ app.listen(port, async () => {
 // ===========================================================
 const cron = require('node-cron');
 
-cron.schedule('59 23 * * *', () => {
+cron.schedule('50 13 * * *', () => {
     client_MQTT.publish("focus/server/totalTime", "get");
 });

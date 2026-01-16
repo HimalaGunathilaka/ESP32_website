@@ -19,7 +19,10 @@ const REDIRECT_RULE_ID = 1;
 // const WS_URL = "ws://192.168.1.19:81";
 const COOLOFF_TIME = 5000;
 
+// When false, this will block publishing changes during initial load from server
+// Set to true only after the initial block list is fully loaded
 let initBlockMutex = false;
+let isInitialLoad = true; // Flag to track if we're doing the initial fetch
 
 // -------------------- Init storage safely --------------------
 chrome.storage.local.get(
@@ -275,15 +278,19 @@ function initializeMQTT() {
             case "focus/block/server": {
                 console.log(payload);
                 if (payload[0] === "s") {
-                    // Start of block list - clear accumulator
+                    // Start of block list - clear accumulator and set loading state
                     pendingBlockList = [];
+                    isInitialLoad = true;
                     initBlockMutex = false;
+                    console.log("Started receiving block list from server");
                     return;
                 } else if (payload[0] === "e") {
                     // End of block list - save all at once
                     await chrome.storage.local.set({ block: pendingBlockList });
                     console.log("Block list loaded:", pendingBlockList);
+                    // Set both flags to allow normal operation
                     initBlockMutex = true;
+                    isInitialLoad = false;
                     return;
                 }
 
@@ -325,7 +332,9 @@ function initializeMQTT() {
                 // +++++++++++++++++++++++++++++++++++++++++++++++++++
                 // Initial fetch for the block list from mongodb
                 // +++++++++++++++++++++++++++++++++++++++++++++++++++
-                await chrome.storage.local.set({ block: [] });
+                // Set flags to indicate we're loading (don't clear block list yet)
+                isInitialLoad = true;
+                initBlockMutex = false;
                 const fetchBlockList = new Paho.MQTT.Message("g|----");
                 fetchBlockList.destinationName = "focus/block/extension";
                 client.send(fetchBlockList);
@@ -353,8 +362,21 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
     if (area !== "local") return;
 
     const abs = await chrome.storage.local.get("absoluteFocusmode");
-    if (changes.block && initBlockMutex) {
+
+    if (changes.block) {
         const { urlMutex } = await chrome.storage.local.get("urlMutex");
+
+        // Don't process any block changes during initial load
+        if (isInitialLoad) {
+            console.log("Skipping block change during initial load");
+            return;
+        }
+
+        // Don't process if we're not ready yet (mutex not set)
+        if (!initBlockMutex) {
+            console.log("Skipping block change - mutex not ready");
+            return;
+        }
 
         if (urlMutex === "mqtt") {
             // This change came from MQTT, don't republish (prevents echo loop)
