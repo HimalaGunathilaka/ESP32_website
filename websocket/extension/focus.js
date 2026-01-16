@@ -6,9 +6,7 @@ async function updateTimer() {
       "start"
     ]);
 
-  // let secs = total_time;
-
-  let secs = 0;
+  let secs = total_time;
 
   if (absoluteFocusmode && start) {
     secs += Math.floor((Date.now() - start) / 1000);
@@ -24,7 +22,8 @@ function renderTime(secs) {
 
   document.getElementById("timer").textContent =
     `${String(hours).padStart(2, "0")}:` +
-    `${String(minutes).padStart(2, "0")}`;
+    `${String(minutes).padStart(2, "0")}:` +
+    `${String(seconds).padStart(2, "0")}`;
 }
 
 

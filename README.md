@@ -1,7 +1,7 @@
 # Project Setup Guide
 
 ## 📌 Note
-- The current working branch is `mqtt`.
+- Working branches are pushed to `dev` for now.
 
 ---
 

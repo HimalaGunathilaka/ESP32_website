@@ -1,34 +1,43 @@
 {
-  "manifest_version": 3,
-  "name": "Focus Redirector",
-  "version": "1.0",
-  "permissions": [
-    "declarativeNetRequest",
-    "storage",
-    "tabs"
-  ],
-  "action":{
-    "default_popup":"popup.html"
-  },
-  "host_permissions": [
-    "*://www.youtube.com/*",
-    "*://www.facebook.com/*",
-    "*://www.twitter.com/*"
-  ],
-  "background": {
-    "service_worker":"background.js"
-  },
-  "declarative_net_request": {
-    "rule_resources": []
-  },
-  "web_accessible_resources": [
-    {
-      "resources": [
-        "focus.html"
-      ],
-      "matches": [
-        "<all_urls>"
-      ]
+    "manifest_version": 3,
+    "name": "MQTT Test Extension",
+    "version": "1.0",
+    "description": "Test Mosquitto via Paho MQTT over WebSockets",
+    "action": {
+        "default_popup": "popup.html",
+        "default_icon": {
+            "16": "icons/icon16.png",
+            "32": "icons/icon32.png",
+            "48": "icons/icon48.png",
+            "128": "icons/icon128.png"
+        }
+    },
+    "permissions": [
+        "tabs",
+        "storage",
+        "declarativeNetRequest",
+        "declarativeNetRequestWithHostAccess",
+        "alarms"
+    ],
+    "declarative_net_request": {
+        "rule_resources": []
+    },
+    "host_permissions": [
+        "<all_urls>",
+        "ws://localhost:9001/*",
+        "wss://localhost:9001/*"
+    ],
+    "web_accessible_resources": [
+        {
+            "resources": [
+                "focus.html"
+            ],
+            "matches": [
+                "<all_urls>"
+            ]
+        }
+    ],
+    "background": {
+        "service_worker": "main.js"
     }
-  ]
 }
