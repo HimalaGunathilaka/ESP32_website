@@ -1,7 +1,7 @@
 // Following include wifi_server + arduino + pubsubclient
 #include "mqtt.h"
 #include "buttons.h"
-#include "wifi_server.h"
+#include "wifi_mgr.h"
 #include "led.h"
 #include "display.h"
 
@@ -38,20 +38,13 @@ void setup()
   pinMode(LED_INDICATOR, OUTPUT);
 
   // Buttons
-  pinMode(BUTTON_MQTT, INPUT_PULLUP);
   pinMode(BUTTON_FOCUS, INPUT_PULLUP);
 
-  attachInterrupt(digitalPinToInterrupt(BUTTON_MQTT),
-                  handleMQTTButtonInterrupt,
-                  RISING);
   attachInterrupt(digitalPinToInterrupt(BUTTON_FOCUS),
                   handleFocusButtonInterrupt,
                   RISING);
 
-  // Check for file details
-  initialize_pref();
-  // This order valid to get MQTT_DETAILS_PRESENT initialized before checking
-  initialize_server();
+  wm.autoConnect("ESP32-WiFi", "password");
 
   displayInit();
   setDisplayNumber(0);
@@ -76,14 +69,6 @@ void loop()
 
   // This indicates that the mqtt server is connected
   digitalWrite(ONBOARD_LED, HIGH);
-
-  // to open or close MQTT config page
-  buttonPress_MQTT();
-
-  // Show and handle the mqtt website
-  if (count == 0 || !MQTT_DETAILS_PRESENT)
-    server.handleClient();
-
   buttonPress_focus();
 
   // Session complete logic

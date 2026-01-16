@@ -2,7 +2,7 @@
 #define BUTTONS_CPP
 
 #include <Arduino.h>
-#include "wifi_server.h"
+#include "wifi_mgr.h"
 #include <PubSubClient.h>
 
 // -------------------------
@@ -24,7 +24,6 @@ PubSubClient client(espClient);
 // Global State
 // -------------------------
 int count = 1;
-// int count_focus = 0;
 
 
 // ++++++++++++++++++++++++++++++++++++
@@ -42,37 +41,10 @@ volatile bool buttonFocusPressed = false;
 // -------------------------
 // ISR
 // -------------------------
-void IRAM_ATTR handleMQTTButtonInterrupt()
-{
-  buttonMQTTPressed = true;
-  detachInterrupt(digitalPinToInterrupt(BUTTON_MQTT));
-}
-
 void IRAM_ATTR handleFocusButtonInterrupt()
 {
   buttonFocusPressed = true;
   detachInterrupt(digitalPinToInterrupt(BUTTON_FOCUS));
-}
-
-
-
-// --------------------------------------------
-// Handling buttons
-// --------------------------------------------
-
-void buttonPress_MQTT()
-{
-  if (!buttonMQTTPressed)
-    return;
-
-  count = (count + 1) % 2;
-  buttonMQTTPressed = false;
-  delay(300);
-  attachInterrupt(digitalPinToInterrupt(BUTTON_MQTT),
-                  handleMQTTButtonInterrupt,
-                  RISING);
-
-  Serial.println("MQTT Button pressed!!");
 }
 
 void buttonPress_focus()
