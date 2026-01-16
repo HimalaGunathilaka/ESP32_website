@@ -12,9 +12,8 @@ extern int mqttPort;
 extern String mqttUsername;
 extern String mqttPassword;
 
-extern unsigned long lastMQTTAttempt;
-extern const unsigned long mqttRetryInterval;
-extern unsigned long lastSession;
+extern bool sessionComplete;
+
 
 // -------------------------
 // Function Declarations

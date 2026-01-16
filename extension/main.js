@@ -23,12 +23,8 @@ let initBlockMutex = false;
 
 // -------------------- Init storage safely --------------------
 chrome.storage.local.get(
-    ["focusMode", "total_time", "absoluteFocusmode", "start", "block", "clientId", "command", "urlMutex"],
+    ["focusMode", "total_time", "absoluteFocusmode", "start", "block", "command", "urlMutex", "sessionComplete"],
     (data) => {
-        if (data.clientId === undefined) {
-            const clientId = Math.floor(Math.random() * 1e4).toString(); // random 4-digit number
-            chrome.storage.local.set({ clientId });
-        }
         if (data.focusMode === undefined)
             chrome.storage.local.set({ focusMode: false });
 
@@ -67,7 +63,12 @@ chrome.storage.local.get(
                 source: false
             })
         }
-
+        // session logic
+        if (data.sessionComplete) {
+            chrome.storage.local.set({
+                sessionComplete: false
+            });
+        }
     }
 );
 
@@ -392,8 +393,8 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
 
         // console.log(command)
 
+        const isEnabled = changes.absoluteFocusmode.newValue;
         if (command === false && client && client.isConnected()) {
-            const isEnabled = changes.absoluteFocusmode.newValue;
 
             const msg = new Paho.MQTT.Message(isEnabled ? "act" : "dact");
             msg.destinationName = "focus/command";
@@ -401,8 +402,15 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
 
             await chrome.storage.local.set({ source: true });
 
-            // console.log(isEnabled ? "act sent" : "dact sent");
-            // return;
+        }
+
+        if (isEnabled) {
+            chrome.alarms.create("focusSessionEnd", { delayInMinutes: 1 });
+        } else {
+            const { sessionComplete } = await chrome.storage.local.get("sessionComplete");
+            if (!sessionComplete) {
+                chrome.alarms.clear("focusSessionEnd");
+            }
         }
 
         // reset command flag if it was set
@@ -465,18 +473,27 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
         // console.log("Focus mode OFF");
 
         if (client && client.isConnected()) {
-            chrome.storage.local.get(["total_time", "clientId"], (data) => {
-                const totalTime = data.total_time ?? 0;
-                // const clientId = data.clientId;
 
-                // Flag to deactivate `d` and total focus time is being sent. 
-                // Client id is not used
-                const payload = `d|${totalTime}`;
+            const { sessionComplete } = await chrome.storage.local.get("sessionComplete");
 
-                const msg = new Paho.MQTT.Message(payload);
+            if (sessionComplete) {
+                const msg = new Paho.MQTT.Message("d|c");
                 msg.destinationName = "focus/activate";
                 client.send(msg);
-            });
+                chrome.storage.local.set({ sessionComplete: false });
+            } else {
+                chrome.storage.local.get(["total_time"], (data) => {
+                    const totalTime = data.total_time ?? 0;
+                    // Flag to deactivate `d` and total focus time is being sent. 
+                    // Client id is not used
+                    const payload = `d|n|${totalTime}`;
+
+                    const msg = new Paho.MQTT.Message(payload);
+                    msg.destinationName = "focus/activate";
+                    client.send(msg);
+                });
+
+            }
         }
     }
 });
@@ -489,6 +506,23 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
 // ===============================
 chrome.alarms.create("mqttPing", { periodInMinutes: 0.5 });
 
-chrome.alarms.onAlarm.addListener(() => {
-    if (!client || !client.isConnected()) initializeMQTT();
+chrome.alarms.onAlarm.addListener(async (alaram) => {
+    if (alaram.name === "mqttPing") {
+        if (!client || !client.isConnected()) initializeMQTT();
+    }
+    else if (alaram.name === "focusSessionEnd") {
+        await achieveSession();
+    }
 });
+
+
+// ===================================
+// Complete session after 25 minutes
+// ===================================
+
+async function achieveSession() {
+    await chrome.storage.local.set({ sessionComplete: true });
+    await chrome.storage.local.set({ focusMode: false });
+}
+
+

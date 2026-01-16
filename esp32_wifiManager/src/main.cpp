@@ -5,14 +5,12 @@
 #include "led.h"
 #include "display.h"
 
-int sessionCount = 0;
-int lastSessionCount = 0;
-const unsigned long sessionInterval = 60000; // 1 minute in milliseconds
-
 #define BUZZER_PIN 23
 
 #define BUZZER_CHANNEL 0
 #define BUZZER_RESOLUTION 8
+
+int sessionCount = 0;
 
 void beep(unsigned int freq, unsigned int durationMs)
 {
@@ -88,31 +86,24 @@ void loop()
 
   buttonPress_focus();
 
-  if (focusMode)
+  // Session complete logic
+  if (sessionComplete)
   {
-    const unsigned long now = millis() - lastSession;
-    const int currentSessionCount = now / sessionInterval;
-    if (currentSessionCount > lastSessionCount)
+    sessionCount++;
+    beep(2000, 150); // 2kHz for 150ms
+    Serial.print("Session count:");
+    Serial.println(sessionCount);
+    if (sessionCount < NUM_LEDS)
     {
-      sessionCount++;
-      lastSessionCount = currentSessionCount;
-
-      // Beep when session ends
-      beep(2000, 150); // 2kHz for 150 ms
-
-      // Light up one additional LED
-      if (sessionCount < NUM_LEDS)
-      {
-        leds[sessionCount - 1] = CRGB::Red;
-      }
+      leds[sessionCount - 1] = CRGB::Red;
     }
-  }
-  else
-  {
-    // Reset counters when focus is off
-    sessionCount = 0;
-    lastSessionCount = 0;
-    clearLED();
+    else
+    {
+      clearLED();
+      sessionCount = 0;
+    }
+
+    sessionComplete = false;
   }
 
   showLED();

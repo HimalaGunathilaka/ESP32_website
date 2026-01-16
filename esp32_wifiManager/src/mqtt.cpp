@@ -6,13 +6,13 @@
 #include "led.h"
 #include "display.h"
 
+bool sessionComplete = false;
 
 // -------------------------
 // MQTT Timing Variables
 // -------------------------
 unsigned long lastMQTTAttempt = 0;
 const unsigned long mqttRetryInterval = 5000;
-unsigned long lastSession = 0;
 
 // ---------------------------------------------
 // MQTT
@@ -32,25 +32,20 @@ void callback(char *topic, byte *payload, unsigned int length)
     // if (!focusMode)
     //   count_focus++;
     focusMode = true;
-    lastSession = millis();
     applyFocusState();
   }
-  else if (strncmp(msg, "d|", 2) == 0)
+  else if (strncmp(msg, "d|c", 3) == 0)
   {
     focusMode = false;
-    lastSession = 0;
+    sessionComplete = true;
+    applyFocusState();
+  }
+  else if (strncmp(msg, "d|n", 3) == 0)
+  {
+    focusMode = false;
     handleFocusEnd(msg);
     applyFocusState();
   }
-
-
-  // if (strcmp(topic, "focus/activate") == 0)
-  // {
-  // }
-  // else if (strcmp(topic, "focus/session"))
-  // {
-    
-  // }
 }
 
 // Reconnecting mqtt
@@ -121,17 +116,17 @@ void applyFocusState()
 
 void handleFocusEnd(char *payload)
 {
-  if (strlen(payload) > 2)
+  if (strlen(payload) > 4)
   {
-    char *totalTimeStr = payload + 2;
+    char *totalTimeStr = payload + 4;
     long sessionTime = atol(totalTimeStr);
 
     sessionTime = sessionTime / 60;
 
     setDisplayNumber(sessionTime);
-    Serial.println("Diplay time");
+    Serial.print("Diplay time");
+    Serial.println(totalTimeStr);
     Serial.println(sessionTime);
-    // Serial.println(result);
   }
 }
 
