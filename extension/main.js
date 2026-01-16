@@ -197,6 +197,7 @@ async function clearAllRedirectRules() {
 // ======================================================
 let client = null;
 let pendingBlockList = []; // Accumulator for incoming block list from server
+let sessionSrc = false;
 
 function initializeMQTT() {
     client = new Paho.MQTT.Client("localhost", 9001, "worker-" + crypto.randomUUID());
@@ -220,6 +221,11 @@ function initializeMQTT() {
                 }
                 else if (payload.startsWith("d|")) {
                     // Handle deactivation with time data
+                    
+                    if(payload == "d|c"){
+                        sessionSrc = false;
+                        return;
+                    }
                     const timeValue = parseInt(payload.split("|")[1], 10);
                     const { src } = await chrome.storage.local.get("src");
                     if (!src) {
@@ -498,11 +504,12 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
 
             const { sessionComplete } = await chrome.storage.local.get("sessionComplete");
 
-            if (sessionComplete) {
+            if (sessionComplete && sessionSrc) {
                 const msg = new Paho.MQTT.Message("d|c");
                 msg.destinationName = "focus/activate";
                 client.send(msg);
                 chrome.storage.local.set({ sessionComplete: false });
+                sessionSrc = false;
             } else {
                 chrome.storage.local.get(["total_time"], (data) => {
                     const totalTime = data.total_time ?? 0;
@@ -544,6 +551,7 @@ chrome.alarms.onAlarm.addListener(async (alaram) => {
 
 async function achieveSession() {
     await chrome.storage.local.set({ sessionComplete: true });
+    sessionSrc = true;  // Set BEFORE focusMode changes to avoid race condition
     await chrome.storage.local.set({ focusMode: false });
 }
 
