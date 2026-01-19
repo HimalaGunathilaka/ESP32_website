@@ -209,7 +209,13 @@ function renderBlockedIcons(blocked, container) {
     img.width = 32;
     img.height = 32;
 
+    // Create cross icon outside of click handler
+    const cross = document.createElement("img");
+    cross.src = "close.png";
+    cross.className = "remove-icon";
+
     button.appendChild(img);
+    button.appendChild(cross);
 
     // Click handler
     button.addEventListener("click", async () => {
@@ -234,7 +240,6 @@ function renderBlockedIcons(blocked, container) {
     })
 
     container.appendChild(button);
-
 
   });
 }
