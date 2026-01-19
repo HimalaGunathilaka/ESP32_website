@@ -127,6 +127,25 @@ body {
 }
 
 @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(-5px); }
-    to { opacity: 1; transform: translateY(0); }
+    from {
+        opacity: 0;
+        transform: translateY(-5px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.blocked-site-btn {
+    background: none;
+    border: none;
+    padding: 4px;
+    cursor: pointer;
+}
+
+.blocked-site-btn:hover {
+    background-color: rgba(0, 0, 0, 0.1);
+    border-radius: 6px;
 }

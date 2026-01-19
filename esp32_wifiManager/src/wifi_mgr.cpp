@@ -15,7 +15,7 @@ WiFiManager wm;
 
 Preferences prefs;
 
-String mqttBroker = "192.168.1.13";
+String mqttBroker = "10.194.32.105";
 String mqttUsername = "himala";
 String mqttPassword = "123";
 
