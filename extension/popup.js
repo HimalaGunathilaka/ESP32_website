@@ -149,14 +149,14 @@ async function updateTimer() {
     sessionSecs = Math.floor((Date.now() - start) / 1000);
   }
 
-  renderTime(sessionSecs);
+  await renderTime(sessionSecs);
   renderTotalTime(total_time + sessionSecs);
 }
 
 // ++++++++++++++++++++++++++++++++++++++++++++++
 // This part has the circular progress bar as well
 // ++++++++++++++++++++++++++++++++++++++++++++++
-function renderTime(secs) {
+async function renderTime(secs) {
   const hours = Math.floor(secs / 3600);
   const minutes = Math.floor((secs % 3600) / 60);
   const seconds = secs % 60;
@@ -166,7 +166,8 @@ function renderTime(secs) {
     `${String(minutes).padStart(2, "0")}`;
 
   // Update circular progress bar (max 8 hours)
-  const maxTime = 25 * 60; // 25 minutes in seconds
+  const {sessionTime} = await chrome.storage.local.get("sessionTime");
+  const maxTime = sessionTime * 60; // 25 minutes in seconds
   const progress = Math.min(secs / maxTime, 1); // Cap at 100%
   const circumference = 534.07;
   const offset = circumference * (1 - progress);

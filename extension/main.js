@@ -26,7 +26,9 @@ let isInitialLoad = true; // Flag to track if we're doing the initial fetch
 
 // -------------------- Init storage safely --------------------
 chrome.storage.local.get(
-    ["focusMode", "total_time", "absoluteFocusmode", "start", "block", "command", "urlMutex", "sessionComplete","sessionCompleteIndicator"],
+    ["focusMode", "total_time", "absoluteFocusmode", 
+        "start", "block", "command", "urlMutex", 
+        "sessionComplete","sessionCompleteIndicator", "sessionTime"],
     (data) => {
         if (data.focusMode === undefined)
             chrome.storage.local.set({ focusMode: false });
@@ -67,15 +69,21 @@ chrome.storage.local.get(
             })
         }
         // session logic
-        if (data.sessionComplete) {
+        if (data.sessionComplete === undefined) {
             chrome.storage.local.set({
                 sessionComplete: false
             });
         }
 
-        if(data.sessionCompleteIndicator){
+        if(data.sessionCompleteIndicator === undefined){
             chrome.storage.local.set({
                 sessionCompleteIndicator:false
+            })
+        }
+
+        if(data.sessionTime === undefined){
+            chrome.storage.local.set({
+                sessionTime: 1 // In minutes
             })
         }
     }
@@ -341,6 +349,12 @@ function initializeMQTT() {
                 }
 
                 client.subscribe("focus/#");
+
+                // Fetch the state of focus from server
+                const fetchState = new Paho.MQTT.Message("s|----");
+                fetchState.destinationName = "focus/block/extension";
+                client.send(fetchState);
+
                 // +++++++++++++++++++++++++++++++++++++++++++++++++++
                 // Initial fetch for the block list from mongodb
                 // +++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -439,7 +453,8 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
         }
 
         if (isEnabled) {
-            chrome.alarms.create("focusSessionEnd", { delayInMinutes: 1 });
+            const {sessionTime} = await chrome.storage.local.get("sessionTime");
+            chrome.alarms.create("focusSessionEnd", { delayInMinutes: sessionTime });
         } else {
             const { sessionComplete } = await chrome.storage.local.get("sessionComplete");
             if (!sessionComplete) {
@@ -512,7 +527,7 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
 
             if (sessionComplete && sessionSrc) {
                 const msg = new Paho.MQTT.Message("d|c");
-                msg.destinationName = "focus/activate";
+                msg.destinationName = "ffocus/activate";
                 client.send(msg);
                 chrome.storage.local.set({ sessionComplete: false });
                 sessionSrc = false;

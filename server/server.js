@@ -6,6 +6,9 @@ const express = require('express');
 const app = express();
 const port = 8080;
 
+// A variable to save the current state of the system
+let focusMode = false;
+
 const { MongoClient } = require('mongodb');
 
 const client_MONGO = new MongoClient(MONGO_URI, {
@@ -34,46 +37,65 @@ function initializeMQTT() {
             if (err) {
                 console.error("MQTT subscription error:", err);
             }
-        })
+        });
+        client_MQTT.subscribe("focus/command");
     });
 
     client_MQTT.on("message", async (topic, message) => {
         // message is buffer
         console.log(message.toString());
 
-        const msg = message.toString();
+        if (topic === "focus/block/extension") {
+            const msg = message.toString();
 
-        if (msg.length < 3 || msg[1] !== "|") {
-            console.warn("Invalid MQTT payload:", msg);
-            return;
+            if (msg.length < 3 || msg[1] !== "|") {
+                console.warn("Invalid MQTT payload:", msg);
+                return;
+            }
+            const cmd = msg[0];
+            const url = msg.slice(2);
+
+            switch (cmd) {
+                case "a":
+                    await putDocument_BLOCKED(url);
+                    break;
+                case "d":
+                    await removeDocument_BLOCKED(url);
+                    break;
+                case "g":
+                    const blocked = await getAll_BLOCKED();
+                    client_MQTT.publish("focus/block/server",
+                        "s|blocklist",);
+
+                    blocked.forEach(link => {
+                        client_MQTT.publish("focus/block/server", `a|${link}`);
+                    });
+                    client_MQTT.publish("focus/block/server", "e|blocklist");
+                    break;
+                case "t":
+                    const day = url.slice(0, 10);
+                    const total_time = url.slice(11);
+                    console.log(total_time);
+                    await putTotalTime(total_time, day);
+                    break;
+                case "s":
+                    if (focusMode) {
+                        client_MQTT("focus/command", "act");
+                    } else {
+                        client_MQTT("focus/command", "dact");
+                    }
+                    break;
+            }
+        } else if (topic === "focus/command") {
+            switch (message) {
+                case "act":
+                    focusMode = true;
+                    break;
+                case "dact":
+                    focusMode = false;
+            }
         }
-        const cmd = msg[0];
-        const url = msg.slice(2);
 
-        switch (cmd) {
-            case "a":
-                await putDocument_BLOCKED(url);
-                break;
-            case "d":
-                await removeDocument_BLOCKED(url);
-                break;
-            case "g":
-                const blocked = await getAll_BLOCKED();
-                client_MQTT.publish("focus/block/server",
-                    "s|blocklist",);
-
-                blocked.forEach(link => {
-                    client_MQTT.publish("focus/block/server", `a|${link}`);
-                });
-                client_MQTT.publish("focus/block/server", "e|blocklist");
-                break;
-            case "t":
-                const day = url.slice(0, 10);
-                const total_time = url.slice(11);
-                console.log(total_time);
-                await putTotalTime(total_time, day);
-                break;
-        }
 
     });
 
