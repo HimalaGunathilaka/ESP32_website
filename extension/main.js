@@ -10,7 +10,7 @@ if (typeof window === 'undefined') {
     };
 }
 
-importScripts('mqttws31.min.js');
+importScripts('libs/mqttws31.min.js');
 
 
 
@@ -26,7 +26,7 @@ let isInitialLoad = true; // Flag to track if we're doing the initial fetch
 
 // -------------------- Init storage safely --------------------
 chrome.storage.local.get(
-    ["focusMode", "total_time", "absoluteFocusmode", "start", "block", "command", "urlMutex", "sessionComplete"],
+    ["focusMode", "total_time", "absoluteFocusmode", "start", "block", "command", "urlMutex", "sessionComplete","sessionCompleteIndicator"],
     (data) => {
         if (data.focusMode === undefined)
             chrome.storage.local.set({ focusMode: false });
@@ -71,6 +71,12 @@ chrome.storage.local.get(
             chrome.storage.local.set({
                 sessionComplete: false
             });
+        }
+
+        if(data.sessionCompleteIndicator){
+            chrome.storage.local.set({
+                sessionCompleteIndicator:false
+            })
         }
     }
 );
@@ -551,6 +557,8 @@ chrome.alarms.onAlarm.addListener(async (alaram) => {
 
 async function achieveSession() {
     await chrome.storage.local.set({ sessionComplete: true });
+    const {sessionCompleteIndicator} = await chrome.storage.local.get("sessionCompleteIndicator");
+    await chrome.storage.local.set({sessionCompleteIndicator:!sessionCompleteIndicator})
     sessionSrc = true;  // Set BEFORE focusMode changes to avoid race condition
     await chrome.storage.local.set({ focusMode: false });
 }

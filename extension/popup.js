@@ -47,7 +47,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   // React to changes (popup stays in sync)
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== "local") return;
-    
+
+    if (changes.sessionCompleteIndicator) {
+      celebrateSession();
+    }
+
     // Handle absoluteFocusmode changes
     if (changes.absoluteFocusmode) {
       focusMode = changes.absoluteFocusmode.newValue;
@@ -242,4 +246,47 @@ function renderBlockedIcons(blocked, container) {
     container.appendChild(button);
 
   });
+}
+
+// ======================================================
+// Designers (For designs of the popup)
+// ======================================================
+
+async function celebrateSession() {
+  if (typeof confetti === 'undefined') {
+    console.warn('confetti library not loaded');
+    return;
+  }
+
+  const duration = 2000;
+  const animationEnd = Date.now() + duration;
+  const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 10000 };
+
+  function randomInRange(min, max) {
+    return Math.random() * (max - min) + min;
+  }
+
+  const interval = setInterval(function() {
+    const timeLeft = animationEnd - Date.now();
+
+    if (timeLeft <= 0) {
+      return clearInterval(interval);
+    }
+
+    const particleCount = 50 * (timeLeft / duration);
+
+    // Burst from left side
+    confetti({
+      ...defaults,
+      particleCount,
+      origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 }
+    });
+    
+    // Burst from right side
+    confetti({
+      ...defaults,
+      particleCount,
+      origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 }
+    });
+  }, 250);
 }
