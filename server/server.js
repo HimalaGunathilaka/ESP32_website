@@ -9,6 +9,9 @@ const port = 8080;
 // A variable to save the current state of the system
 let focusMode = false;
 
+// A variable to capture number of completed sessions
+let sessioncount = 0;
+
 const { MongoClient } = require('mongodb');
 
 const client_MONGO = new MongoClient(MONGO_URI, {
@@ -39,14 +42,15 @@ function initializeMQTT() {
             }
         });
         client_MQTT.subscribe("focus/command");
+        client_MQTT.subscribe("focus/activate");
     });
 
     client_MQTT.on("message", async (topic, message) => {
         // message is buffer
         console.log(message.toString());
+        const msg = message.toString();
 
         if (topic === "focus/block/extension") {
-            const msg = message.toString();
 
             if (msg.length < 3 || msg[1] !== "|") {
                 console.warn("Invalid MQTT payload:", msg);
@@ -80,19 +84,24 @@ function initializeMQTT() {
                     break;
                 case "s":
                     if (focusMode) {
-                        client_MQTT("focus/command", "act");
+                        client_MQTT.publish("focus/command", "act");
                     } else {
-                        client_MQTT("focus/command", "dact");
+                        client_MQTT.publish("focus/command", "dact");
                     }
                     break;
             }
         } else if (topic === "focus/command") {
-            switch (message) {
+            switch (msg) {
                 case "act":
                     focusMode = true;
                     break;
                 case "dact":
                     focusMode = false;
+            }
+        } else if (topic === "focus/activate") {
+            if (msg === "d|c") {
+                // sessioncount = sessioncount + 1;
+                await putSessionCount(1);
             }
         }
 
@@ -148,6 +157,20 @@ async function putDocument_BLOCKED(url) {
     }
 }
 
+async function putSessionCount(count) {
+    try {
+        const dateKey = getDateKeySL();
+
+        return await userCol.updateOne(
+            { userId: "himala" },
+            { $inc: { [`sessionsCompleted.${dateKey}`]: count } }
+        );
+    } catch (err) {
+        console.error(err);
+    }
+}
+
+
 async function removeDocument_BLOCKED(url) {
     try {
         const res = await userCol.updateOne(
@@ -192,6 +215,11 @@ async function putTotalTime(total_time, day) {
 ]
 */
 
+function getDateKeySL() {
+    return new Date().toLocaleDateString("en-CA", {
+        timeZone: "Asia/Colombo"
+    });
+}
 
 
 // ==========================================================
@@ -201,6 +229,20 @@ app.listen(port, async () => {
     console.log(`Server listening at http://localhost:${port}`);
     await initMongo();
     initializeMQTT();
+
+    await userCol.updateOne(
+        { userId: "himala" },
+        {
+            $setOnInsert: {
+                userId: "himala",
+                blockList: [],
+                total_time: {},
+                sessionsCompleted: {}
+            }
+        },
+        { upsert: true }
+    );
+
 });
 
 
@@ -209,6 +251,8 @@ app.listen(port, async () => {
 // ===========================================================
 const cron = require('node-cron');
 
-cron.schedule('34 15 * * *', () => {
+cron.schedule('59 23 * * *', async () => {
     client_MQTT.publish("focus/server/totalTime", "get");
+    // await putSessionCount(sessioncount);
+    // sessioncount = 0;
 });

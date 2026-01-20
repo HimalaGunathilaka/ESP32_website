@@ -26,9 +26,9 @@ let isInitialLoad = true; // Flag to track if we're doing the initial fetch
 
 // -------------------- Init storage safely --------------------
 chrome.storage.local.get(
-    ["focusMode", "total_time", "absoluteFocusmode", 
-        "start", "block", "command", "urlMutex", 
-        "sessionComplete","sessionCompleteIndicator", "sessionTime"],
+    ["focusMode", "total_time", "absoluteFocusmode",
+        "start", "block", "command", "urlMutex",
+        "sessionComplete", "sessionCompleteIndicator", "sessionTime"],
     (data) => {
         if (data.focusMode === undefined)
             chrome.storage.local.set({ focusMode: false });
@@ -75,13 +75,13 @@ chrome.storage.local.get(
             });
         }
 
-        if(data.sessionCompleteIndicator === undefined){
+        if (data.sessionCompleteIndicator === undefined) {
             chrome.storage.local.set({
-                sessionCompleteIndicator:false
+                sessionCompleteIndicator: false
             })
         }
 
-        if(data.sessionTime === undefined){
+        if (data.sessionTime === undefined) {
             chrome.storage.local.set({
                 sessionTime: 1 // In minutes
             })
@@ -184,16 +184,6 @@ async function redirectCurrentTab() {
 }
 
 
-// async function disableRedirectRules() {
-//     const { block = [] } = await chrome.storage.local.get("block");
-
-//     const removeRuleIds = block.map((_, i) => REDIRECT_RULE_BASE_ID + i);
-
-//     await chrome.declarativeNetRequest.updateDynamicRules({
-//         removeRuleIds
-//     });
-// }
-
 async function clearAllRedirectRules() {
     const rules = await chrome.declarativeNetRequest.getDynamicRules();
     const ids = rules.map(r => r.id);
@@ -235,8 +225,8 @@ function initializeMQTT() {
                 }
                 else if (payload.startsWith("d|")) {
                     // Handle deactivation with time data
-                    
-                    if(payload == "d|c"){
+
+                    if (payload == "d|c") {
                         sessionSrc = false;
                         return;
                     }
@@ -453,7 +443,7 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
         }
 
         if (isEnabled) {
-            const {sessionTime} = await chrome.storage.local.get("sessionTime");
+            const { sessionTime } = await chrome.storage.local.get("sessionTime");
             chrome.alarms.create("focusSessionEnd", { delayInMinutes: sessionTime });
         } else {
             const { sessionComplete } = await chrome.storage.local.get("sessionComplete");
@@ -527,7 +517,7 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
 
             if (sessionComplete && sessionSrc) {
                 const msg = new Paho.MQTT.Message("d|c");
-                msg.destinationName = "ffocus/activate";
+                msg.destinationName = "focus/activate";
                 client.send(msg);
                 chrome.storage.local.set({ sessionComplete: false });
                 sessionSrc = false;
@@ -572,10 +562,77 @@ chrome.alarms.onAlarm.addListener(async (alaram) => {
 
 async function achieveSession() {
     await chrome.storage.local.set({ sessionComplete: true });
-    const {sessionCompleteIndicator} = await chrome.storage.local.get("sessionCompleteIndicator");
-    await chrome.storage.local.set({sessionCompleteIndicator:!sessionCompleteIndicator})
+    const { sessionCompleteIndicator } = await chrome.storage.local.get("sessionCompleteIndicator");
+    await chrome.storage.local.set({ sessionCompleteIndicator: !sessionCompleteIndicator })
     sessionSrc = true;  // Set BEFORE focusMode changes to avoid race condition
     await chrome.storage.local.set({ focusMode: false });
 }
 
 
+// ======================================================
+// Listeners to change the icon
+// ======================================================
+chrome.tabs.onActivated.addListener(handleTabChange);
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+    if (changeInfo.status === "complete") {
+        handleTabChange();
+    }
+})
+
+async function handleTabChange() {
+    const [tab] = await chrome.tabs.query({
+        active: true,
+        currentWindow: true
+    });
+
+    if (!tab?.url || !tab.url.startsWith("http")) {
+        chrome.action.setIcon({ path: "icons/icon32.png" });
+        return;
+    }
+
+    const hostname = new URL(tab.url).hostname;
+    const { block = [] } = await chrome.storage.local.get("block");
+
+    const exists = isBlocked(hostname, block);
+
+    chrome.action.setIcon({
+        path: exists
+            ? {
+                16: "icons/icon_glow16.png",
+                32: "icons/icon_glow32.png",
+                48: "icons/icon_glow48.png",
+                128: "icons/icon_glow128.png"
+            }
+            : {
+                16: "icons/icon16.png",
+                32: "icons/icon32.png",
+                48: "icons/icon48.png",
+                128: "icons/icon128.png"
+            }
+    });
+}
+
+function isBlocked(hostname, blockList) {
+    const cleanHost = hostname.replace(/^www\./, "");
+
+    return blockList.some(site => {
+        const blockedHost = normalizeHost(site);
+        if (!blockedHost) return false;
+
+        return (
+            cleanHost === blockedHost ||
+            cleanHost.endsWith("." + blockedHost)
+        );
+    });
+}
+
+function normalizeHost(input) {
+    try {
+        const url = input.startsWith("http")
+            ? new URL(input)
+            : new URL("https://" + input);
+        return url.hostname.replace(/^www\./, "");
+    } catch {
+        return null;
+    }
+}
