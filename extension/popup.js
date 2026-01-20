@@ -166,7 +166,7 @@ async function renderTime(secs) {
     `${String(minutes).padStart(2, "0")}`;
 
   // Update circular progress bar (max 8 hours)
-  const {sessionTime} = await chrome.storage.local.get("sessionTime");
+  const { sessionTime } = await chrome.storage.local.get("sessionTime");
   const maxTime = sessionTime * 60; // 25 minutes in seconds
   const progress = Math.min(secs / maxTime, 1); // Cap at 100%
   const circumference = 534.07;
@@ -225,6 +225,14 @@ function renderBlockedIcons(blocked, container) {
     // Click handler
     button.addEventListener("click", async () => {
       console.log("Clicked:", site);
+      // Block the remove functionality if still in focusmode
+      const { absoluteFocusmode } = await chrome.storage.local.get("absoluteFocusmode");
+      if (absoluteFocusmode) {
+        const tooltip = document.getElementById("addTooltip");
+        tooltip.classList.add("show");
+        setTimeout(() => tooltip.classList.remove("show"), 2000);
+        return;
+      }
 
       const { block = [] } = await chrome.storage.local.get("block");
 
@@ -267,7 +275,7 @@ async function celebrateSession() {
     return Math.random() * (max - min) + min;
   }
 
-  const interval = setInterval(function() {
+  const interval = setInterval(function () {
     const timeLeft = animationEnd - Date.now();
 
     if (timeLeft <= 0) {
@@ -282,7 +290,7 @@ async function celebrateSession() {
       particleCount,
       origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 }
     });
-    
+
     // Burst from right side
     confetti({
       ...defaults,
