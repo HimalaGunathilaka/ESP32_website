@@ -380,6 +380,8 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
     const abs = await chrome.storage.local.get("absoluteFocusmode");
 
     if (changes.block) {
+        handleTabChange();
+
         const { urlMutex } = await chrome.storage.local.get("urlMutex");
 
         // Don't process any block changes during initial load
