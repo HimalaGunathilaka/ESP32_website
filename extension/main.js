@@ -10,7 +10,7 @@ if (typeof window === 'undefined') {
     };
 }
 
-importScripts('mqttws31.min.js');
+importScripts('libs/mqttws31.min.js');
 
 
 
@@ -19,11 +19,16 @@ const REDIRECT_RULE_ID = 1;
 // const WS_URL = "ws://192.168.1.19:81";
 const COOLOFF_TIME = 5000;
 
+// When false, this will block publishing changes during initial load from server
+// Set to true only after the initial block list is fully loaded
 let initBlockMutex = false;
+let isInitialLoad = true; // Flag to track if we're doing the initial fetch
 
 // -------------------- Init storage safely --------------------
 chrome.storage.local.get(
-    ["focusMode", "total_time", "absoluteFocusmode", "start", "block", "command", "urlMutex", "sessionComplete"],
+    ["focusMode", "total_time", "absoluteFocusmode",
+        "start", "block", "command", "urlMutex",
+        "sessionComplete", "sessionCompleteIndicator", "sessionTime"],
     (data) => {
         if (data.focusMode === undefined)
             chrome.storage.local.set({ focusMode: false });
@@ -64,10 +69,22 @@ chrome.storage.local.get(
             })
         }
         // session logic
-        if (data.sessionComplete) {
+        if (data.sessionComplete === undefined) {
             chrome.storage.local.set({
                 sessionComplete: false
             });
+        }
+
+        if (data.sessionCompleteIndicator === undefined) {
+            chrome.storage.local.set({
+                sessionCompleteIndicator: false
+            })
+        }
+
+        if (data.sessionTime === undefined) {
+            chrome.storage.local.set({
+                sessionTime: 1 // In minutes
+            })
         }
     }
 );
@@ -167,16 +184,6 @@ async function redirectCurrentTab() {
 }
 
 
-// async function disableRedirectRules() {
-//     const { block = [] } = await chrome.storage.local.get("block");
-
-//     const removeRuleIds = block.map((_, i) => REDIRECT_RULE_BASE_ID + i);
-
-//     await chrome.declarativeNetRequest.updateDynamicRules({
-//         removeRuleIds
-//     });
-// }
-
 async function clearAllRedirectRules() {
     const rules = await chrome.declarativeNetRequest.getDynamicRules();
     const ids = rules.map(r => r.id);
@@ -194,6 +201,7 @@ async function clearAllRedirectRules() {
 // ======================================================
 let client = null;
 let pendingBlockList = []; // Accumulator for incoming block list from server
+let sessionSrc = false;
 
 function initializeMQTT() {
     client = new Paho.MQTT.Client("localhost", 9001, "worker-" + crypto.randomUUID());
@@ -217,6 +225,11 @@ function initializeMQTT() {
                 }
                 else if (payload.startsWith("d|")) {
                     // Handle deactivation with time data
+
+                    if (payload == "d|c") {
+                        sessionSrc = false;
+                        return;
+                    }
                     const timeValue = parseInt(payload.split("|")[1], 10);
                     const { src } = await chrome.storage.local.get("src");
                     if (!src) {
@@ -275,15 +288,19 @@ function initializeMQTT() {
             case "focus/block/server": {
                 console.log(payload);
                 if (payload[0] === "s") {
-                    // Start of block list - clear accumulator
+                    // Start of block list - clear accumulator and set loading state
                     pendingBlockList = [];
+                    isInitialLoad = true;
                     initBlockMutex = false;
+                    console.log("Started receiving block list from server");
                     return;
                 } else if (payload[0] === "e") {
                     // End of block list - save all at once
                     await chrome.storage.local.set({ block: pendingBlockList });
                     console.log("Block list loaded:", pendingBlockList);
+                    // Set both flags to allow normal operation
                     initBlockMutex = true;
+                    isInitialLoad = false;
                     return;
                 }
 
@@ -296,13 +313,13 @@ function initializeMQTT() {
                 break;
             }
             case "focus/server/totalTime": {
-                const { totalTime } = await chrome.storage.local.get("totalTime");
+                const { total_time } = await chrome.storage.local.get("total_time");
                 const currentDate = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
-                const totalTimeMsg = new Paho.MQTT.Message(`t|${currentDate}|${totalTime}`);
+                const totalTimeMsg = new Paho.MQTT.Message(`t|${currentDate}|${total_time}`);
                 totalTimeMsg.destinationName = "focus/block/extension";
                 client.send(totalTimeMsg);
 
-                await chrome.storage.local.set({ totalTime: 0 });
+                await chrome.storage.local.set({ total_time: 0 });
                 break;
             }
         }
@@ -322,10 +339,18 @@ function initializeMQTT() {
                 }
 
                 client.subscribe("focus/#");
+
+                // Fetch the state of focus from server
+                const fetchState = new Paho.MQTT.Message("s|----");
+                fetchState.destinationName = "focus/block/extension";
+                client.send(fetchState);
+
                 // +++++++++++++++++++++++++++++++++++++++++++++++++++
                 // Initial fetch for the block list from mongodb
                 // +++++++++++++++++++++++++++++++++++++++++++++++++++
-                await chrome.storage.local.set({ block: [] });
+                // Set flags to indicate we're loading (don't clear block list yet)
+                isInitialLoad = true;
+                initBlockMutex = false;
                 const fetchBlockList = new Paho.MQTT.Message("g|----");
                 fetchBlockList.destinationName = "focus/block/extension";
                 client.send(fetchBlockList);
@@ -353,8 +378,23 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
     if (area !== "local") return;
 
     const abs = await chrome.storage.local.get("absoluteFocusmode");
-    if (changes.block && initBlockMutex) {
+
+    if (changes.block) {
+        handleTabChange();
+
         const { urlMutex } = await chrome.storage.local.get("urlMutex");
+
+        // Don't process any block changes during initial load
+        if (isInitialLoad) {
+            console.log("Skipping block change during initial load");
+            return;
+        }
+
+        // Don't process if we're not ready yet (mutex not set)
+        if (!initBlockMutex) {
+            console.log("Skipping block change - mutex not ready");
+            return;
+        }
 
         if (urlMutex === "mqtt") {
             // This change came from MQTT, don't republish (prevents echo loop)
@@ -405,7 +445,8 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
         }
 
         if (isEnabled) {
-            chrome.alarms.create("focusSessionEnd", { delayInMinutes: 1 });
+            const { sessionTime } = await chrome.storage.local.get("sessionTime");
+            chrome.alarms.create("focusSessionEnd", { delayInMinutes: sessionTime });
         } else {
             const { sessionComplete } = await chrome.storage.local.get("sessionComplete");
             if (!sessionComplete) {
@@ -476,11 +517,12 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
 
             const { sessionComplete } = await chrome.storage.local.get("sessionComplete");
 
-            if (sessionComplete) {
+            if (sessionComplete && sessionSrc) {
                 const msg = new Paho.MQTT.Message("d|c");
                 msg.destinationName = "focus/activate";
                 client.send(msg);
                 chrome.storage.local.set({ sessionComplete: false });
+                sessionSrc = false;
             } else {
                 chrome.storage.local.get(["total_time"], (data) => {
                     const totalTime = data.total_time ?? 0;
@@ -522,7 +564,77 @@ chrome.alarms.onAlarm.addListener(async (alaram) => {
 
 async function achieveSession() {
     await chrome.storage.local.set({ sessionComplete: true });
+    const { sessionCompleteIndicator } = await chrome.storage.local.get("sessionCompleteIndicator");
+    await chrome.storage.local.set({ sessionCompleteIndicator: !sessionCompleteIndicator })
+    sessionSrc = true;  // Set BEFORE focusMode changes to avoid race condition
     await chrome.storage.local.set({ focusMode: false });
 }
 
 
+// ======================================================
+// Listeners to change the icon
+// ======================================================
+chrome.tabs.onActivated.addListener(handleTabChange);
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+    if (changeInfo.status === "complete") {
+        handleTabChange();
+    }
+})
+
+async function handleTabChange() {
+    const [tab] = await chrome.tabs.query({
+        active: true,
+        currentWindow: true
+    });
+
+    if (!tab?.url || !tab.url.startsWith("http")) {
+        chrome.action.setIcon({ path: "icons/icon32.png" });
+        return;
+    }
+
+    const hostname = new URL(tab.url).hostname;
+    const { block = [] } = await chrome.storage.local.get("block");
+
+    const exists = isBlocked(hostname, block);
+
+    chrome.action.setIcon({
+        path: exists
+            ? {
+                16: "icons/icon_glow16.png",
+                32: "icons/icon_glow32.png",
+                48: "icons/icon_glow48.png",
+                128: "icons/icon_glow128.png"
+            }
+            : {
+                16: "icons/icon16.png",
+                32: "icons/icon32.png",
+                48: "icons/icon48.png",
+                128: "icons/icon128.png"
+            }
+    });
+}
+
+function isBlocked(hostname, blockList) {
+    const cleanHost = hostname.replace(/^www\./, "");
+
+    return blockList.some(site => {
+        const blockedHost = normalizeHost(site);
+        if (!blockedHost) return false;
+
+        return (
+            cleanHost === blockedHost ||
+            cleanHost.endsWith("." + blockedHost)
+        );
+    });
+}
+
+function normalizeHost(input) {
+    try {
+        const url = input.startsWith("http")
+            ? new URL(input)
+            : new URL("https://" + input);
+        return url.hostname.replace(/^www\./, "");
+    } catch {
+        return null;
+    }
+}
