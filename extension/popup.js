@@ -23,9 +23,12 @@ async function getActiveHostname() {
   return new URL(url).hostname;
 }
 
+// HTML objects
+
 const addBtn = document.getElementById("addBtn");
 const btn = document.getElementById("focusBtn");
 const iconContainer = document.getElementById("iconList");
+const tooltip = document.getElementById("addTooltip");
 
 // -------------------- Init popup --------------------
 document.addEventListener("DOMContentLoaded", async () => {
@@ -100,16 +103,16 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Check if focus mode is active
     const { absoluteFocusmode } = await chrome.storage.local.get("absoluteFocusmode");
     if (absoluteFocusmode) {
-      const tooltip = document.getElementById("addTooltip");
+      clear_tooltipTimers();
       tooltip.classList.add("show");
-      setTimeout(() => tooltip.classList.remove("show"), 2000);
+      tooltipTimer_show = setTimeout(() => tooltip.classList.remove("show"), 2000);
       return;
     }
 
     const hostname = await getActiveHostname();
     if (!hostname) return;
 
-    console.log("Website entered:", hostname);
+    // console.log("Website entered:", hostname);
 
     chrome.storage.local.get("block", (data) => {
       const blocked = data.block ?? [];
@@ -117,7 +120,13 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (!blocked.includes(hostname)) {
         blocked.push(hostname);
         chrome.storage.local.set({ block: blocked }, () => {
-          console.log("Updated block list:", blocked);
+          // Tooltip
+          clear_tooltipTimers();
+
+          tooltip.classList.add("add");
+          tooltip.textContent = `"${hostname}" is added!`
+          tooltipTimer_add = setTimeout(() => tooltip.classList.remove("add"), 2000);
+          // console.log("Updated block list:", blocked);
         });
         addBtn.classList.toggle("tag", true);
         addBtn.textContent = "Remove";
@@ -125,7 +134,13 @@ document.addEventListener("DOMContentLoaded", async () => {
         const index = blocked.indexOf(hostname);
         blocked.splice(index, 1);
         chrome.storage.local.set({ block: blocked }, () => {
-          console.log("Removed from block list:", blocked);
+          // console.log("Removed from block list:", blocked);
+          // Tooltip
+          clear_tooltipTimers();
+
+          tooltip.classList.add("remove");
+          tooltip.textContent = `"${hostname}" is removed!`
+          tooltipTimer_remove = setTimeout(() => tooltip.classList.remove("remove"), 2000);
         });
         addBtn.classList.toggle("tag", false);
         addBtn.textContent = "Add";
@@ -228,13 +243,13 @@ function renderBlockedIcons(blocked, container) {
 
     // Click handler
     button.addEventListener("click", async () => {
-      console.log("Clicked:", site);
+      // console.log("Clicked:", site);
       // Block the remove functionality if still in focusmode
       const { absoluteFocusmode } = await chrome.storage.local.get("absoluteFocusmode");
       if (absoluteFocusmode) {
-        const tooltip = document.getElementById("addTooltip");
+        clear_tooltipTimers();
         tooltip.classList.add("show");
-        setTimeout(() => tooltip.classList.remove("show"), 2000);
+        tooltipTimer_show = setTimeout(() => tooltip.classList.remove("show"), 2000);
         return;
       }
 
@@ -247,7 +262,14 @@ function renderBlockedIcons(blocked, container) {
         await chrome.storage.local.set({ block: block });
       }
 
+
       button.remove(); // Remove from DOM
+
+      // Tooltip
+      clear_tooltipTimers();
+      tooltip.classList.add("remove");
+      tooltip.textContent = `"${site}" is removed!`
+      tooltipTimer_remove = setTimeout(() => tooltip.classList.remove("remove"), 2000);
 
       const activeHost = await getActiveHostname();
 
@@ -263,7 +285,7 @@ function renderBlockedIcons(blocked, container) {
 }
 
 // ======================================================
-// Designers (For designs of the popup)
+// Confetti
 // ======================================================
 
 async function celebrateSession() {
@@ -324,8 +346,23 @@ topRightBtn.addEventListener("click", () => {
   } else {
     urlView.classList.remove("view-active");
     mainView.classList.add("view-active");
-    topRightBtn.textContent = "Menu"; // optional
+    topRightBtn.textContent = "Blocked"; // optional
   }
 
   showingMainView = !showingMainView;
 });
+
+// ====================================================
+// Tool tip
+// ====================================================
+let tooltipTimer_show = null;
+let tooltipTimer_add = null;
+let tooltipTimer_remove = null;
+
+function clear_tooltipTimers() {
+  clearTimeout(tooltipTimer_add);
+  clearTimeout(tooltipTimer_remove);
+  clearTimeout(tooltipTimer_show);
+  // Also remove all tooltip classes to prevent color conflicts
+  tooltip.classList.remove("show", "add", "remove");
+}
