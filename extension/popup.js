@@ -88,7 +88,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     const blocked = data.block ?? [];
 
     // Toggle button state
-    addBtn.classList.toggle("tag", blocked.includes(hostname));
+    const isBlocked = blocked.includes(hostname);
+    addBtn.classList.toggle("tag", isBlocked);
+    addBtn.textContent = isBlocked ? "Remove" : "Add";
 
     // Render icons
     renderBlockedIcons(blocked, iconContainer);
@@ -310,9 +312,20 @@ async function celebrateSession() {
 // ================================================
 const topRightBtn = document.getElementById("topRightBtn");
 const mainView = document.getElementById("view-main");
-const secondView = document.getElementById("view-secondary");
+const urlView = document.getElementById("view-url");
+
+let showingMainView = true;
 
 topRightBtn.addEventListener("click", () => {
-  mainView.classList.toggle("view-active");
-  secondView.classList.toggle("view-active");
+  if (showingMainView) {
+    mainView.classList.remove("view-active");
+    urlView.classList.add("view-active");
+    topRightBtn.textContent = "Back"; // optional
+  } else {
+    urlView.classList.remove("view-active");
+    mainView.classList.add("view-active");
+    topRightBtn.textContent = "Menu"; // optional
+  }
+
+  showingMainView = !showingMainView;
 });
