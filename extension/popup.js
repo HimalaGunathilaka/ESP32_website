@@ -302,3 +302,17 @@ async function celebrateSession() {
     });
   }, 250);
 }
+
+
+
+// ================================================
+// Second view logic
+// ================================================
+const topRightBtn = document.getElementById("topRightBtn");
+const mainView = document.getElementById("view-main");
+const secondView = document.getElementById("view-secondary");
+
+topRightBtn.addEventListener("click", () => {
+  mainView.classList.toggle("view-active");
+  secondView.classList.toggle("view-active");
+});

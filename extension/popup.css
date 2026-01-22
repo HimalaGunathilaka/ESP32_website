@@ -202,3 +202,23 @@ body {
 
     text-align: center;
 }
+
+.top-right-btn {
+    position: fixed;
+    top: 8px;
+    right: 8px;
+    z-index: 10000;
+
+    padding: 6px 12px;
+    font-size: 12px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+}
+.view {
+    display: none;
+}
+
+.view-active {
+    display: block;
+}
