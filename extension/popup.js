@@ -251,6 +251,7 @@ function renderBlockedIcons(blocked, container) {
 
       if (activeHost === site) {
         addBtn.classList.toggle("tag", false);
+        addBtn.textContent = "Add";
       }
     })
 
