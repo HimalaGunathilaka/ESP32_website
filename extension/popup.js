@@ -118,6 +118,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           console.log("Updated block list:", blocked);
         });
         addBtn.classList.toggle("tag", true);
+        addBtn.textContent = "Remove";
       } else {
         const index = blocked.indexOf(hostname);
         blocked.splice(index, 1);
@@ -125,6 +126,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           console.log("Removed from block list:", blocked);
         });
         addBtn.classList.toggle("tag", false);
+        addBtn.textContent = "Add";
       }
 
       // Re-render icons
