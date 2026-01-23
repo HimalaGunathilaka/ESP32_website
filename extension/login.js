@@ -42,7 +42,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Register logic
     registerBtn.addEventListener("click", async () => {
-        loginBox.style.display = "none";
 
         const username = registerInputs[0].value.trim();
         const email = registerInputs[1].value.trim();

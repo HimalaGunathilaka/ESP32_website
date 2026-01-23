@@ -68,23 +68,27 @@
             font-weight: bold;
         }
 
-        .register {
+        .login, .register{
             display: none;
+        }
+
+        .login{
+            display: block;
         }
 
         :target.register {
             display: block;
         }
 
-        :target.login {
-            display: block;
-        }
-
-        :target.login~.register {
+        :target.register~.login {
             display: none;
         }
 
-        :target.register~.login {
+        :target.login{
+            display: block;
+        }
+
+        :target.login~.register{
             display: none;
         }
 
@@ -102,24 +106,13 @@
         #message.error {
             color: #dc2626;
         }
+
     </style>
 </head>
 
 <body>
 
     <div class="container">
-        <!-- Login -->
-        <div id="login" class="login">
-            <h2>Login</h2>
-            <input type="email" placeholder="Email">
-            <input type="password" placeholder="Password">
-            <button>Login</button>
-
-            <div class="switch">
-                Don’t have an account? <a href="#register">Register</a>
-            </div>
-        </div>
-
         <!-- Register -->
         <div id="register" class="register">
             <h2>Register</h2>
@@ -131,6 +124,18 @@
 
             <div class="switch">
                 Already have an account? <a href="#login">Login</a>
+            </div>
+        </div>
+
+        <!-- Login -->
+        <div id="login" class="login">
+            <h2>Login</h2>
+            <input type="email" placeholder="Email">
+            <input type="password" placeholder="Password">
+            <button>Login</button>
+
+            <div class="switch">
+                Don't have an account? <a href="#register">Register</a>
             </div>
         </div>
         <p id="message"></p>
