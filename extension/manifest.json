@@ -30,7 +30,8 @@
     "web_accessible_resources": [
         {
             "resources": [
-                "focus.html"
+                "focus.html",
+                "login.html"
             ],
             "matches": [
                 "<all_urls>"

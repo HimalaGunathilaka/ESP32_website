@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Login / Register</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        body {
+            height: 100vh;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: #f2f4f8;
+        }
+
+        .container {
+            width: 320px;
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+
+        h2 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        input {
+            width: 100%;
+            padding: 10px;
+            margin: 8px 0;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+        }
+
+        button {
+            width: 100%;
+            padding: 10px;
+            margin-top: 10px;
+            border: none;
+            border-radius: 6px;
+            background: #4f46e5;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #4338ca;
+        }
+
+        .switch {
+            text-align: center;
+            margin-top: 15px;
+            font-size: 14px;
+        }
+
+        .switch a {
+            color: #4f46e5;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        .login, .register{
+            display: none;
+        }
+
+        .login{
+            display: block;
+        }
+
+        :target.register {
+            display: block;
+        }
+
+        :target.register~.login {
+            display: none;
+        }
+
+        :target.login{
+            display: block;
+        }
+
+        :target.login~.register{
+            display: none;
+        }
+
+        #message {
+            text-align: center;
+            font-size: 14px;
+            margin-bottom: 10px;
+            display: none;
+        }
+
+        #message.success {
+            color: #16a34a;
+        }
+
+        #message.error {
+            color: #dc2626;
+        }
+
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <!-- Register -->
+        <div id="register" class="register">
+            <h2>Register</h2>
+            <input type="text" placeholder="Username">
+            <input type="email" placeholder="Email">
+            <input type="password" placeholder="Password">
+            <input type="password" placeholder="Confirm Password">
+            <button>Register</button>
+
+            <div class="switch">
+                Already have an account? <a href="#login">Login</a>
+            </div>
+        </div>
+
+        <!-- Login -->
+        <div id="login" class="login">
+            <h2>Login</h2>
+            <input type="email" placeholder="Email">
+            <input type="password" placeholder="Password">
+            <button>Login</button>
+
+            <div class="switch">
+                Don't have an account? <a href="#register">Register</a>
+            </div>
+        </div>
+        <p id="message"></p>
+    </div>
+    <script src="login.js"></script>
+</body>
+
+</html>

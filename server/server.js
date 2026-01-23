@@ -2,9 +2,22 @@ require('dotenv').config(); // load .env
 const MONGO_URI = process.env.MONGO_URI;
 const MQTT_BROKER = process.env.MQTT_BROKER;
 
+
+// =====================================================
+// For login / register system
+// =====================================================
+
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
+
+// =====================================================
 const express = require('express');
+const cors = require('cors'); // Add this line
 const app = express();
 const port = 8080;
+
+app.use(cors()); // Add this line - enables CORS for all origins
+app.use(express.json());
 
 // A variable to save the current state of the system
 let focusMode = false;
@@ -104,8 +117,6 @@ function initializeMQTT() {
                 await putSessionCount(1);
             }
         }
-
-
     });
 
     client_MQTT.on("error", (err) => {
@@ -120,11 +131,11 @@ async function initMongo() {
     db = client_MONGO.db("testUser");
     userCol = db.collection("users");
     // Ensure the user document exists
-    await userCol.updateOne(
-        { userId: "himala" },
-        { $setOnInsert: { userId: "himala", blockList: [], total_time: {} } },
-        { upsert: true }
-    );
+    // await userCol.updateOne(
+    //     { userId: "himala" },
+    //     { $setOnInsert: { userId: "himala", blockList: [], total_time: {} } },
+    //     { upsert: true }
+    // );
     console.log("MongoDB connected!");
 }
 
@@ -227,21 +238,40 @@ function getDateKeySL() {
 // ==========================================================
 app.listen(port, async () => {
     console.log(`Server listening at http://localhost:${port}`);
+    // Enable JSON body parsing
     await initMongo();
-    initializeMQTT();
 
-    await userCol.updateOne(
-        { userId: "himala" },
-        {
-            $setOnInsert: {
-                userId: "himala",
-                blockList: [],
-                total_time: {},
-                sessionsCompleted: {}
-            }
-        },
-        { upsert: true }
-    );
+    if (process.env.MQTT_BROKER) {
+        console.log("MQTT enabled");
+        initializeMQTT();
+    } else {
+        console.log("MQTT disabled (no broker configured)");
+    }
+
+
+
+    try {
+        await userCol.createIndex(
+            { userId: 1 },
+            { unique: true }
+        );
+    } catch (err) {
+        if (err.code !== 11000) throw err;
+        console.warn("Unique index already exists");
+    }
+
+    // await userCol.updateOne(
+    //     { userId: "himala" },
+    //     {
+    //         $setOnInsert: {
+    //             userId: "himala",
+    //             blockList: [],
+    //             total_time: {},
+    //             sessionsCompleted: {}
+    //         }
+    //     },
+    //     { upsert: true }
+    // );
 
 });
 
@@ -252,7 +282,158 @@ app.listen(port, async () => {
 const cron = require('node-cron');
 
 cron.schedule('59 23 * * *', async () => {
-    client_MQTT.publish("focus/server/totalTime", "get");
-    // await putSessionCount(sessioncount);
-    // sessioncount = 0;
+    if (client_MQTT?.connected) {
+        client_MQTT.publish("focus/server/totalTime", "get");
+    }
 });
+
+
+// ============================================
+// login / register
+// ============================================
+app.post('/add-user', async (req, res) => {
+    try {
+        const { username, password, email } = req.body;
+
+        if (!username || !password || !email) {
+            return res.status(400).json({ message: "Username and password required" });
+        }
+
+        // Check if user already exists
+        const existingUser = await userCol.findOne({ userId: username });
+        const emailExist = await userCol.findOne({ email: email });
+
+        if (existingUser) {
+            return res.status(409).json({ message: "User already exists" });
+        }
+        if (emailExist) {
+            return res.status(409).json({ message: "Email already used" });
+        }
+
+        // Hash password
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        // Create new user document
+        const newUser = {
+            userId: username,
+            email: email,
+            password: hashedPassword,
+            blockList: [],
+            total_time: {},
+            sessionsCompleted: {},
+            createdAt: new Date()
+        };
+
+        // Insert to mongodb
+        const result = await userCol.insertOne(newUser);
+
+        res.status(201).json({
+            message: "User created successfully",
+            userId: result.insertOne
+        });
+
+    } catch (err) {
+        console.error("Add user error:", err);
+        res.status(500).json({ message: "Internal server error" })
+    }
+});
+
+app.post('/login', async (req, res) => {
+    try {
+        const { username, password } = req.body;
+
+        if (!username || !password) {
+            return res.status(400).json({ message: "Username and password required" });
+        }
+
+        // Find user
+        const user = await userCol.findOne({ userId: username });
+        if (!user) {
+            return res.status(401).json({ message: "Invalid credentials" });
+        }
+
+        // Compare password
+        const match = await bcrypt.compare(password, user.password);
+        if (!match) {
+            return res.status(401).json({ message: "Invalid credentials" });
+        }
+
+        // Create JWT payload (Never include password)
+
+        const payload = {
+            userId: user.userId
+        };
+
+        const accessToken = jwt.sign(
+            payload,
+            process.env.TOKEN_SECRET,
+            { expiresIn: "1h" }
+        );
+
+        res.json({ accessToken });
+    } catch (err) {
+        console.error("Login error:", err);
+        res.status(500).json({ message: "Internal server error" });
+    }
+});
+
+
+function authenticateJWT(req, res, next) {
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader) return res.sendStatus(401);
+
+    const token = authHeader.split(" ")[1];
+
+    jwt.verify(token, process.env.TOKEN_SECRET, (err, user) => {
+        if (err) return res.sendStatus(403);
+
+        req.user = user;
+
+        next();
+    });
+}
+// =======================================================
+
+const WebSocket = require("ws");
+
+const wss = new WebSocket.Server({ port: 8081 });
+
+wss.on("connection", (ws) => {
+    console.log("WS connected");
+
+
+    ws.isAuthenticated = false;
+
+    ws.on("message", (data) => {
+        try {
+            const msg = JSON.parse(data);
+
+            // First message must be auth
+            if (msg.type === "auth") {
+                jwt.verify(msg.token, process.env.TOKEN_SECRET, (err, user) => {
+                    if (err) {
+                        ws.send(JSON.stringify({ type: "error", message: "Auth failed" }));
+                        ws.close();
+                        return;
+                    }
+
+                    ws.user = user;
+                    ws.isAuthenticated = true;
+                    ws.send(JSON.stringify({ type: "auth", status: "ok" }));
+                });
+                return;
+            }
+
+            if (!ws.isAuthenticated) {
+                ws.close();
+                return;
+            }
+
+            // Normal messages
+            console.log("User message:", ws.user.userId, msg);
+        } catch (e) {
+            ws.close();
+        }
+    })
+})

@@ -28,7 +28,8 @@ let isInitialLoad = true; // Flag to track if we're doing the initial fetch
 chrome.storage.local.get(
     ["focusMode", "total_time", "absoluteFocusmode",
         "start", "block", "command", "urlMutex",
-        "sessionComplete", "sessionCompleteIndicator", "sessionTime"],
+        "sessionComplete", "sessionCompleteIndicator", "sessionTime",
+        "isLogged", "username"],
     (data) => {
         if (data.focusMode === undefined)
             chrome.storage.local.set({ focusMode: false });
@@ -68,7 +69,7 @@ chrome.storage.local.get(
                 source: false
             })
         }
-        // session logic
+        // Focus session logic
         if (data.sessionComplete === undefined) {
             chrome.storage.local.set({
                 sessionComplete: false
@@ -85,6 +86,17 @@ chrome.storage.local.get(
             chrome.storage.local.set({
                 sessionTime: 1 // In minutes
             })
+        }
+
+        // Authentication
+        if (data.isLogged === undefined) {
+            chrome.storage.local.set({
+                isLogged: false
+            })
+        }
+
+        if (data.username === undefined) {
+            chrome.storage.local.set({ username: "" })
         }
     }
 );
