@@ -38,6 +38,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
         localStorage.setItem("token", data.accessToken);
         showMessage("Login successful");
+
+        
+        await chrome.storage.local.set({ username: username });
+        await chrome.storage.local.set({ isLogged: true });
+        console.log("Complete");
+
     });
 
     // Register logic

@@ -37,7 +37,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const hostname = await getActiveHostname();
 
   // Read SYSTEM TRUTH
-  chrome.storage.local.get("absoluteFocusmode", (data) => {
+  chrome.storage.local.get(["absoluteFocusmode", "isLogged", "username"], (data) => {
     const active = data.absoluteFocusmode ?? false;
     focusMode = active;
     btn.classList.toggle("active", active);
@@ -47,12 +47,26 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (circle) {
       circle.classList.toggle("active", active);
     }
+
+    // Check if user is already logged in
+    if (data.isLogged && data.username) {
+      userBtn.textContent = data.username;
+    }
   });
 
   // React to changes (popup stays in sync)
-  chrome.storage.onChanged.addListener((changes, area) => {
+  chrome.storage.onChanged.addListener(async (changes, area) => {
     if (area !== "local") return;
 
+    if (changes.isLogged) {
+      if (changes.isLogged.newValue) {
+        const { username } = await chrome.storage.local.get("username");
+        userBtn.textContent = username;
+
+        console.log(username);
+
+      }
+    }
     if (changes.sessionCompleteIndicator) {
       celebrateSession();
     }
