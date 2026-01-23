@@ -29,6 +29,8 @@ const addBtn = document.getElementById("addBtn");
 const btn = document.getElementById("focusBtn");
 const iconContainer = document.getElementById("iconList");
 const tooltip = document.getElementById("addTooltip");
+const userBtn = document.getElementById("topLeftBtn");
+
 
 // -------------------- Init popup --------------------
 document.addEventListener("DOMContentLoaded", async () => {
@@ -151,6 +153,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
 
   });
+
+  userBtn.addEventListener("click", async () => {
+    chrome.tabs.create({ url: chrome.runtime.getURL("login.html") });
+  })
 })
 
 // -------------------- Timer (UI only) --------------------
