@@ -368,6 +368,17 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
 
     const abs = await chrome.storage.local.get("absoluteFocusmode");
 
+    if (changes.username) {
+        const data = await sendTo_server("GET", "/url/list");
+
+        if (data && data.block) {
+            // Mark this as server-originated to prevent republishing
+            await chrome.storage.local.set({ urlMutex: "mqtt" });
+            await chrome.storage.local.set({ block: data.block });
+            console.log("Block list updated:", data.block);
+        }
+    }
+
     if (changes.block) {
         handleTabChange_icon();
 
@@ -641,7 +652,7 @@ async function sendTo_server(method, endpoint, payload) {
         ]);
 
         if (!isLogged || !token) {
-            console.warn("Not logged in – skipping server sync");
+            console.warn("Not logged in -> skipping server sync");
             return null;
         }
 

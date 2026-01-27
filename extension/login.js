@@ -38,6 +38,7 @@ document.addEventListener("DOMContentLoaded", () => {
             }
             showMessage("Login successful");
 
+            
             await chrome.storage.local.set({
                 username,
                 token: data.accessToken,
