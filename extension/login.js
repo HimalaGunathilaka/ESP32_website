@@ -50,9 +50,6 @@ document.addEventListener("DOMContentLoaded", () => {
             showMessage("Server is not running", "error");
             return
         }
-
-
-
     });
 
     // Register logic

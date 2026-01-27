@@ -19,16 +19,13 @@ const REDIRECT_RULE_ID = 1;
 // const WS_URL = "ws://192.168.1.19:81";
 const COOLOFF_TIME = 5000;
 
-// When false, this will block publishing changes during initial load from server
-// Set to true only after the initial block list is fully loaded
-// let initBlockMutex = false;
 
 // -------------------- Init storage safely --------------------
 chrome.storage.local.get(
     ["focusMode", "total_time", "absoluteFocusmode",
         "start", "block", "command", "urlMutex",
         "sessionComplete", "sessionCompleteIndicator", "sessionTime",
-        "isLogged", "username"],
+        "isLogged", "username", "token"],
     (data) => {
         if (data.focusMode === undefined)
             chrome.storage.local.set({ focusMode: false });
@@ -68,6 +65,7 @@ chrome.storage.local.get(
                 source: false
             })
         }
+        // -----------------------------------------------
         // Focus session logic
         if (data.sessionComplete === undefined) {
             chrome.storage.local.set({
@@ -87,6 +85,8 @@ chrome.storage.local.get(
             })
         }
 
+
+        //-----------------------------------------------
         // Authentication
         if (data.isLogged === undefined) {
             chrome.storage.local.set({
@@ -95,7 +95,11 @@ chrome.storage.local.get(
         }
 
         if (data.username === undefined) {
-            chrome.storage.local.set({ username: "" })
+            chrome.storage.local.set({ username: "Guest" })
+        }
+
+        if (data.token === undefined) {
+            chrome.storage.local.set({ token: "" })
         }
     }
 );
@@ -126,8 +130,6 @@ async function elapsedSeconds() {
 // --------------Reset total time after t time---------------
 // --------------To depict the end of the day----------------
 async function resetTotal_time() {
-    // const { total_time = 0 } = await chrome.storage.local.get(["total_time"]);
-    // console.log("total_time:", total_time);
     chrome.storage.local.set({ total_time: 0 });
 }
 
@@ -214,13 +216,16 @@ let client = null;
 let pendingBlockList = []; // Accumulator for incoming block list from server
 let sessionSrc = false;
 
-function initializeMQTT() {
+async function initializeMQTT() {
+    const { isLogged } = await chrome.storage.local.get("isLogged");
+
+    if (!isLogged) return;
+
     client = new Paho.MQTT.Client("localhost", 9001, "worker-" + crypto.randomUUID());
 
     chrome.alarms.onAlarm.addListener(() => {
-        if (!client || !client.isConnected()); //initializeMQTT();
-    })
-    // client.onConnectionLost = () => setTimeout(initializeMQTT, 2000);
+        if (!client || !client.isConnected());
+    });
 
     client.onMessageArrived = async (msg) => {
         const payload = msg.payloadString;
@@ -353,7 +358,7 @@ function initializeMQTT() {
     });
 }
 
-initializeMQTT();
+await initializeMQTT();
 
 // ======================================================
 // ======================================================
@@ -368,7 +373,7 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
 
     const abs = await chrome.storage.local.get("absoluteFocusmode");
 
-    if (changes.username) {
+    if (changes.username && changes.username !== "Guest") {
         const data = await sendTo_server("GET", "/url/list");
 
         if (data && data.block) {
@@ -551,7 +556,7 @@ chrome.alarms.create("mqttPing", { periodInMinutes: 0.5 });
 
 chrome.alarms.onAlarm.addListener(async (alaram) => {
     if (alaram.name === "mqttPing") {
-        if (!client || !client.isConnected()) initializeMQTT();
+        if (!client || !client.isConnected()) await initializeMQTT();
     }
     else if (alaram.name === "focusSessionEnd") {
         await achieveSession();
@@ -644,6 +649,21 @@ function normalizeHost(input) {
 // Server connection logic stuff
 // =====================================
 
+// ------------------------------------------------
+// Check whether current session is valid
+
+(async () => {
+    const valid = await sendTo_server("GET", "/auth/verify");
+    if (valid) console.log("Token is valid");
+    else {
+        await chrome.storage.local.set({ username: "Guest" });
+        await chrome.storage.local.set({ isLogged: false });
+        await chrome.storage.local.set({ focusMode: false });
+        await chrome.storage.local.set({ block: [] });
+    }
+})();
+
+// --------------------------------------------
 async function sendTo_server(method, endpoint, payload) {
     try {
         const { token, isLogged } = await chrome.storage.local.get([
@@ -689,6 +709,14 @@ async function sendTo_server(method, endpoint, payload) {
         return true;
     } catch (err) {
         console.error("sendTo_server failed:", err);
+
+        // If we can't reach the server and the user was logged in, log them out
+        if (method === "GET" && endpoint === "/auth/verify") {
+            console.warn("Server unreachable - logging out user");
+            await chrome.storage.local.set({ username: "Guest" });
+            await chrome.storage.local.set({ isLogged: false });
+        }
+
         return null;
     }
 }

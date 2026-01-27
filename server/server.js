@@ -396,6 +396,10 @@ app.post("/session/complete", authenticateJWT, async (req, res) => {
     }
 });
 
+app.get("/auth/verify", authenticateJWT, (req, res) => {
+    res.json({ ok: true, userId: req.user.userId });
+});
+
 function authenticateJWT(req, res, next) {
     const authHeader = req.headers.authorization;
 
