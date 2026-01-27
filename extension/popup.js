@@ -1,5 +1,7 @@
 let focusMode = false;
 
+const SERVER_BASE = "http://localhost:8080";
+
 // -------------------- Toggle focus --------------------
 async function focus() {
   // Always read current storage value to avoid sync issues
@@ -135,6 +137,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       if (!blocked.includes(hostname)) {
         blocked.push(hostname);
+
+        // Send link to server
+        sendTo_server("POST", "/url/add", { url: hostname });
+
         chrome.storage.local.set({ block: blocked }, () => {
           // Tooltip
           clear_tooltipTimers();
@@ -149,6 +155,11 @@ document.addEventListener("DOMContentLoaded", async () => {
       } else {
         const index = blocked.indexOf(hostname);
         blocked.splice(index, 1);
+
+        // Send link to be removed to server
+        sendTo_server("POST", "/url/remove", { url: hostname });
+
+
         chrome.storage.local.set({ block: blocked }, () => {
           // console.log("Removed from block list:", blocked);
           // Tooltip
@@ -362,7 +373,7 @@ topRightBtn.addEventListener("click", () => {
   if (showingMainView) {
     mainView.classList.remove("view-active");
     urlView.classList.add("view-active");
-    topRightBtn.textContent = "Back"; // optional
+    topRightBtn.textContent = "Blocked List"; // optional
   } else {
     urlView.classList.remove("view-active");
     mainView.classList.add("view-active");
@@ -385,4 +396,59 @@ function clear_tooltipTimers() {
   clearTimeout(tooltipTimer_show);
   // Also remove all tooltip classes to prevent color conflicts
   tooltip.classList.remove("show", "add", "remove");
+}
+
+
+
+// =====================================
+// Server connection logic stuff
+// =====================================
+
+async function sendTo_server(method, endpoint, payload) {
+  try {
+    const { token, isLogged } = await chrome.storage.local.get([
+      "token",
+      "isLogged"
+    ]);
+
+    if (!isLogged || !token) {
+      console.warn("Not logged in – skipping server sync");
+      return null;
+    }
+
+    const res = await fetch(`${SERVER_BASE}${endpoint}`, {
+      method: method,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`
+      },
+      body: method !== "GET" ? JSON.stringify(
+        typeof payload === "string"
+          ? { value: payload }
+          : payload
+      ) : undefined
+    });
+
+    if (res.status === 401) {
+      console.warn("JWT expired or invalid");
+      await chrome.storage.local.set({ isLogged: false });
+      return null;
+    }
+
+    if (!res.ok) {
+      console.error("Server error:", await res.text());
+      return null;
+    }
+
+    // Capture response form GET requests
+    if (method === "GET") {
+      const data = await res.json();
+      return data;
+    }
+
+    return true;
+  } catch (err) {
+    console.error("sendTo_server failed:", err);
+    return null;
+  }
 }

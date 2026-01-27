@@ -20,7 +20,7 @@ app.use(cors()); // Add this line - enables CORS for all origins
 app.use(express.json());
 
 // A variable to save the current state of the system
-let focusMode = false;
+// let focusMode = false;
 
 // A variable to capture number of completed sessions
 let sessioncount = 0;
@@ -38,104 +38,102 @@ let db, userCol;
 // ============================================================
 // MQTT
 // ============================================================
-const mqtt = require("mqtt");
-let client_MQTT = null;
+// const mqtt = require("mqtt");
+// let client_MQTT = null;
 
-function initializeMQTT() {
-    client_MQTT = mqtt.connect(MQTT_BROKER, {
-        username: process.env.MQTT_USER,
-        password: process.env.MQTT_PASS
-    });
+// function initializeMQTT() {
+//     client_MQTT = mqtt.connect(MQTT_BROKER, {
+//         username: process.env.MQTT_USER,
+//         password: process.env.MQTT_PASS
+//     });
 
-    client_MQTT.on("connect", () => {
-        console.log("MQTT connected!");
-        client_MQTT.subscribe("focus/block/extension", (err) => {
-            if (err) {
-                console.error("MQTT subscription error:", err);
-            }
-        });
-        client_MQTT.subscribe("focus/command");
-        client_MQTT.subscribe("focus/activate");
-    });
+//     client_MQTT.on("connect", () => {
+//         console.log("MQTT connected!");
+//         client_MQTT.subscribe("focus/block/extension", (err) => {
+//             if (err) {
+//                 console.error("MQTT subscription error:", err);
+//             }
+//         });
+//         client_MQTT.subscribe("focus/command");
+//         client_MQTT.subscribe("focus/activate");
+//     });
 
-    client_MQTT.on("message", async (topic, message) => {
-        // message is buffer
-        console.log(message.toString());
-        const msg = message.toString();
+//     client_MQTT.on("message", async (topic, message) => {
+//         // message is buffer
+//         console.log(message.toString());
+//         const msg = message.toString();
 
-        if (topic === "focus/block/extension") {
+//         if (topic === "focus/block/extension") {
 
-            if (msg.length < 3 || msg[1] !== "|") {
-                console.warn("Invalid MQTT payload:", msg);
-                return;
-            }
-            const cmd = msg[0];
-            const url = msg.slice(2);
+//             if (msg.length < 3 || msg[1] !== "|") {
+//                 console.warn("Invalid MQTT payload:", msg);
+//                 return;
+//             }
+//             const cmd = msg[0];
+//             const url = msg.slice(2);
 
-            switch (cmd) {
-                case "a":
-                    await putDocument_BLOCKED(url);
-                    break;
-                case "d":
-                    await removeDocument_BLOCKED(url);
-                    break;
-                case "g":
-                    const blocked = await getAll_BLOCKED();
-                    client_MQTT.publish("focus/block/server",
-                        "s|blocklist",);
+//             switch (cmd) {
+//                 case "a":
+//                     // await putDocument_BLOCKED(url);
+//                     break;
+//                 case "d":
+//                     // await removeDocument_BLOCKED(url);
+//                     break;
+//                 case "g":
+//                     const blocked = await getAll_BLOCKED();
+//                     client_MQTT.publish("focus/block/server",
+//                         "s|blocklist",);
 
-                    blocked.forEach(link => {
-                        client_MQTT.publish("focus/block/server", `a|${link}`);
-                    });
-                    client_MQTT.publish("focus/block/server", "e|blocklist");
-                    break;
-                case "t":
-                    const day = url.slice(0, 10);
-                    const total_time = url.slice(11);
-                    console.log(total_time);
-                    await putTotalTime(total_time, day);
-                    break;
-                case "s":
-                    if (focusMode) {
-                        client_MQTT.publish("focus/command", "act");
-                    } else {
-                        client_MQTT.publish("focus/command", "dact");
-                    }
-                    break;
-            }
-        } else if (topic === "focus/command") {
-            switch (msg) {
-                case "act":
-                    focusMode = true;
-                    break;
-                case "dact":
-                    focusMode = false;
-            }
-        } else if (topic === "focus/activate") {
-            if (msg === "d|c") {
-                // sessioncount = sessioncount + 1;
-                await putSessionCount(1);
-            }
-        }
-    });
+//                     blocked.forEach(link => {
+//                         client_MQTT.publish("focus/block/server", `a|${link}`);
+//                     });
+//                     client_MQTT.publish("focus/block/server", "e|blocklist");
+//                     break;
+//                 case "t":
+//                     const day = url.slice(0, 10);
+//                     const total_time = url.slice(11);
+//                     console.log(total_time);
+//                     await putTotalTime(total_time, day);
+//                     break;
+//                 // case "s":
+//                 //     if (focusMode) {
+//                 //         client_MQTT.publish("focus/command", "act");
+//                 //     } else {
+//                 //         client_MQTT.publish("focus/command", "dact");
+//                 //     }
+//                 //     break;
+//             }
+//         }
+//         /*else if (topic === "focus/command") {
+//            switch (msg) {
+//                case "act":
+//                    focusMode = true;
+//                    break;
+//                case "dact":
+//                    focusMode = false;
+//            }
+//        }*/
+//         else if (topic === "focus/activate") {
+//             if (msg === "d|c") {
+//                 // sessioncount = sessioncount + 1;
+//                 await putSessionCount(1);
+//             }
+//         }
+//     });
 
-    client_MQTT.on("error", (err) => {
-        console.error("MQTT error:", err);
-    })
-}
+//     client_MQTT.on("error", (err) => {
+//         console.error("MQTT error:", err);
+//     })
+// }
 
-// +++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+// ==============================================================
+// mongodb initialization
+// ==============================================================
 
 async function initMongo() {
     await client_MONGO.connect();
     db = client_MONGO.db("testUser");
     userCol = db.collection("users");
-    // Ensure the user document exists
-    // await userCol.updateOne(
-    //     { userId: "himala" },
-    //     { $setOnInsert: { userId: "himala", blockList: [], total_time: {} } },
-    //     { upsert: true }
-    // );
     console.log("MongoDB connected!");
 }
 
@@ -152,10 +150,10 @@ app.get('/', (req, res) => {
 // mongoDB requests
 // =========================================================
 
-async function putDocument_BLOCKED(url) {
+async function putDocument_BLOCKED(url, currentUser) {
     try {
         const result = await userCol.updateOne(
-            { userId: "himala", blockList: { $ne: url } },
+            { userId: currentUser, blockList: { $ne: url } },
             { $addToSet: { blockList: url } }
         );
         if (result.modifiedCount > 0) {
@@ -168,12 +166,12 @@ async function putDocument_BLOCKED(url) {
     }
 }
 
-async function putSessionCount(count) {
+async function putSessionCount(count, currentUser) {
     try {
         const dateKey = getDateKeySL();
 
         return await userCol.updateOne(
-            { userId: "himala" },
+            { userId: currentUser },
             { $inc: { [`sessionsCompleted.${dateKey}`]: count } }
         );
     } catch (err) {
@@ -182,10 +180,10 @@ async function putSessionCount(count) {
 }
 
 
-async function removeDocument_BLOCKED(url) {
+async function removeDocument_BLOCKED(url, currentUser) {
     try {
         const res = await userCol.updateOne(
-            { userId: "himala" },
+            { userId: currentUser },
             { $pull: { blockList: url } }
         );
         console.log(`${url} was removed (${res.modifiedCount} modified)`);
@@ -194,10 +192,10 @@ async function removeDocument_BLOCKED(url) {
     }
 }
 
-async function getAll_BLOCKED() {
+async function getAll_BLOCKED(currentUser) {
     try {
         const user = await userCol.findOne(
-            { userId: "himala" },
+            { userId: currentUser },
             { projection: { _id: 0, blockList: 1 } }
         );
         return user ? user.blockList : [];
@@ -207,10 +205,10 @@ async function getAll_BLOCKED() {
     }
 }
 
-async function putTotalTime(total_time, day) {
+async function putTotalTime(total_time, day, currentUser) {
     try {
         const res = await userCol.updateOne(
-            { userId: "himala" },
+            { userId: currentUser },
             { $set: { [`total_time.${day}`]: parseInt(total_time) } }
         );
         console.log(`Total time for ${day} is saved: ${total_time}`);
@@ -241,12 +239,12 @@ app.listen(port, async () => {
     // Enable JSON body parsing
     await initMongo();
 
-    if (process.env.MQTT_BROKER) {
-        console.log("MQTT enabled");
-        initializeMQTT();
-    } else {
-        console.log("MQTT disabled (no broker configured)");
-    }
+    // if (process.env.MQTT_BROKER) {
+    //     console.log("MQTT enabled");
+    //     initializeMQTT();
+    // } else {
+    //     console.log("MQTT disabled (no broker configured)");
+    // }
 
 
 
@@ -260,32 +258,17 @@ app.listen(port, async () => {
         console.warn("Unique index already exists");
     }
 
-    // await userCol.updateOne(
-    //     { userId: "himala" },
-    //     {
-    //         $setOnInsert: {
-    //             userId: "himala",
-    //             blockList: [],
-    //             total_time: {},
-    //             sessionsCompleted: {}
-    //         }
-    //     },
-    //     { upsert: true }
-    // );
-
 });
 
 
 // ===========================================================
 // Crone job for resetting time
 // ===========================================================
-const cron = require('node-cron');
+// const cron = require('node-cron');
 
-cron.schedule('59 23 * * *', async () => {
-    if (client_MQTT?.connected) {
-        client_MQTT.publish("focus/server/totalTime", "get");
-    }
-});
+// cron.schedule('59 23 * * *', async () => {
+//     sendTo_extension("localhost:8080/time", "get");
+// });
 
 
 // ============================================
@@ -377,6 +360,41 @@ app.post('/login', async (req, res) => {
     }
 });
 
+app.post("/url/add", authenticateJWT, async (req, res) => {
+    const { url } = req.body;
+    if (!url) return res.status(400).json({ message: "url required" });
+
+    await putDocument_BLOCKED(url, req.user.userId);
+    res.json({ ok: true });
+});
+
+app.post("/url/remove", authenticateJWT, async (req, res) => {
+    const { url } = req.body;
+    if (!url) return res.status(400).json({ message: "url required" });
+
+    await removeDocument_BLOCKED(url, req.user.userId);
+    res.json({ ok: true });
+});
+
+app.get("/url/list", authenticateJWT, async (req, res) => {
+    try {
+        const blockList = await getAll_BLOCKED(req.user.userId);
+        res.json({ block: blockList });
+    } catch (err) {
+        console.error("GET /url/list error:", err);
+        res.status(500).json({ message: "Internal server error" });
+    }
+});
+
+app.post("/session/complete", authenticateJWT, async (req, res) => {
+    try {
+        await putSessionCount(1, req.user.userId);
+        res.json({ ok: true });
+    } catch (err) {
+        console.error("POST /session/complete error:", err);
+        res.status(500).json({ message: "Internal server error" });
+    }
+});
 
 function authenticateJWT(req, res, next) {
     const authHeader = req.headers.authorization;
@@ -393,6 +411,8 @@ function authenticateJWT(req, res, next) {
         next();
     });
 }
+
+// =======================================================
 // =======================================================
 
 const WebSocket = require("ws");
@@ -419,6 +439,7 @@ wss.on("connection", (ws) => {
                     }
 
                     ws.user = user;
+                    currentUser = user;
                     ws.isAuthenticated = true;
                     ws.send(JSON.stringify({ type: "auth", status: "ok" }));
                 });

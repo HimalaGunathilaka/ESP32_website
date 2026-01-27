@@ -13,7 +13,7 @@ if (typeof window === 'undefined') {
 importScripts('libs/mqttws31.min.js');
 
 
-
+const SERVER_BASE = "http://localhost:8080";
 const REDIRECT_RULE_ID = 1;
 // const RESET_TIME = 600000; // 10 minutes
 // const WS_URL = "ws://192.168.1.19:81";
@@ -21,8 +21,7 @@ const COOLOFF_TIME = 5000;
 
 // When false, this will block publishing changes during initial load from server
 // Set to true only after the initial block list is fully loaded
-let initBlockMutex = false;
-let isInitialLoad = true; // Flag to track if we're doing the initial fetch
+// let initBlockMutex = false;
 
 // -------------------- Init storage safely --------------------
 chrome.storage.local.get(
@@ -297,43 +296,18 @@ function initializeMQTT() {
                 }
                 break;
             }
-            case "focus/block/server": {
-                console.log(payload);
-                if (payload[0] === "s") {
-                    // Start of block list - clear accumulator and set loading state
-                    pendingBlockList = [];
-                    isInitialLoad = true;
-                    initBlockMutex = false;
-                    console.log("Started receiving block list from server");
-                    return;
-                } else if (payload[0] === "e") {
-                    // End of block list - save all at once
-                    await chrome.storage.local.set({ block: pendingBlockList });
-                    console.log("Block list loaded:", pendingBlockList);
-                    // Set both flags to allow normal operation
-                    initBlockMutex = true;
-                    isInitialLoad = false;
-                    return;
-                }
+            // case "focus/server/totalTime": {
+            //     const { total_time } = await chrome.storage.local.get("total_time");
+            //     const currentDate = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+            //     // const totalTimeMsg = new Paho.MQTT.Message(`t|${currentDate}|${total_time}`);
+            //     // totalTimeMsg.destinationName = "focus/block/extension";
+            //     // client.send(totalTimeMsg);
 
-                // Accumulate URLs in memory (not storage) to avoid race condition
-                const url = payload.slice(2);
-                if (url && !pendingBlockList.includes(url)) {
-                    pendingBlockList.push(url);
-                }
+            //     sendTo_server("POST", "/time", currentDate);
 
-                break;
-            }
-            case "focus/server/totalTime": {
-                const { total_time } = await chrome.storage.local.get("total_time");
-                const currentDate = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
-                const totalTimeMsg = new Paho.MQTT.Message(`t|${currentDate}|${total_time}`);
-                totalTimeMsg.destinationName = "focus/block/extension";
-                client.send(totalTimeMsg);
-
-                await chrome.storage.local.set({ total_time: 0 });
-                break;
-            }
+            //     await chrome.storage.local.set({ total_time: 0 });
+            //     break;
+            // }
         }
         console.log(payload);
     };
@@ -361,11 +335,14 @@ function initializeMQTT() {
                 // Initial fetch for the block list from mongodb
                 // +++++++++++++++++++++++++++++++++++++++++++++++++++
                 // Set flags to indicate we're loading (don't clear block list yet)
-                isInitialLoad = true;
-                initBlockMutex = false;
-                const fetchBlockList = new Paho.MQTT.Message("g|----");
-                fetchBlockList.destinationName = "focus/block/extension";
-                client.send(fetchBlockList);
+                const data = await sendTo_server("GET", "/url/list");
+
+                if (data && data.block) {
+                    // Mark this as server-originated to prevent republishing
+                    await chrome.storage.local.set({ urlMutex: "mqtt" });
+                    await chrome.storage.local.set({ block: data.block });
+                    console.log("Block list updated:", data.block);
+                }
             } catch (err) {
                 console.error("MQTT onSuccess error:", err);
                 setTimeout(initializeMQTT, 2000);
@@ -392,21 +369,15 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
     const abs = await chrome.storage.local.get("absoluteFocusmode");
 
     if (changes.block) {
-        handleTabChange();
+        handleTabChange_icon();
 
         const { urlMutex } = await chrome.storage.local.get("urlMutex");
 
-        // Don't process any block changes during initial load
-        if (isInitialLoad) {
-            console.log("Skipping block change during initial load");
-            return;
-        }
-
         // Don't process if we're not ready yet (mutex not set)
-        if (!initBlockMutex) {
-            console.log("Skipping block change - mutex not ready");
-            return;
-        }
+        // if (!initBlockMutex) {
+        //     console.log("Skipping block change - mutex not ready");
+        //     return;
+        // }
 
         if (urlMutex === "mqtt") {
             // This change came from MQTT, don't republish (prevents echo loop)
@@ -426,12 +397,19 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
                     const msgURL = new Paho.MQTT.Message(`a|${newArr[i]}`);
                     msgURL.destinationName = "focus/block/extension";
                     client.send(msgURL);
+
+                    console.log("Added")
+
+                    // sendTo_server("POST", "/url/add", { url: newArr[i] });
                 }
             } else {
                 for (let i = lenNew; i < lenOld; i++) {
                     const msgURL = new Paho.MQTT.Message(`d|${oldArr[i]}`);
                     msgURL.destinationName = "focus/block/extension";
                     client.send(msgURL);
+
+                    console.log("Removed")
+                    // sendTo_server("POST", "/url/remove", { url: oldArr[i] });
                 }
             }
         }
@@ -586,14 +564,14 @@ async function achieveSession() {
 // ======================================================
 // Listeners to change the icon
 // ======================================================
-chrome.tabs.onActivated.addListener(handleTabChange);
+chrome.tabs.onActivated.addListener(handleTabChange_icon);
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     if (changeInfo.status === "complete") {
-        handleTabChange();
+        handleTabChange_icon();
     }
 })
 
-async function handleTabChange() {
+async function handleTabChange_icon() {
     const [tab] = await chrome.tabs.query({
         active: true,
         currentWindow: true
@@ -647,6 +625,59 @@ function normalizeHost(input) {
             : new URL("https://" + input);
         return url.hostname.replace(/^www\./, "");
     } catch {
+        return null;
+    }
+}
+
+// =====================================
+// Server connection logic stuff
+// =====================================
+
+async function sendTo_server(method, endpoint, payload) {
+    try {
+        const { token, isLogged } = await chrome.storage.local.get([
+            "token",
+            "isLogged"
+        ]);
+
+        if (!isLogged || !token) {
+            console.warn("Not logged in – skipping server sync");
+            return null;
+        }
+
+        const res = await fetch(`${SERVER_BASE}${endpoint}`, {
+            method: method,
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${token}`
+            },
+            body: method !== "GET" ? JSON.stringify(
+                typeof payload === "string"
+                    ? { value: payload }
+                    : payload
+            ) : undefined
+        });
+
+        if (res.status === 401) {
+            console.warn("JWT expired or invalid");
+            await chrome.storage.local.set({ isLogged: false });
+            return null;
+        }
+
+        if (!res.ok) {
+            console.error("Server error:", await res.text());
+            return null;
+        }
+
+        // Capture response form GET requests
+        if (method === "GET") {
+            const data = await res.json();
+            return data;
+        }
+
+        return true;
+    } catch (err) {
+        console.error("sendTo_server failed:", err);
         return null;
     }
 }
