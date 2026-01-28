@@ -32,11 +32,15 @@ const btn = document.getElementById("focusBtn");
 const iconContainer = document.getElementById("iconList");
 const tooltip = document.getElementById("addTooltip");
 const userBtn = document.getElementById("topLeftBtn");
+const espBtn = document.getElementById("espBtn");
 
 
 // -------------------- Init popup --------------------
 document.addEventListener("DOMContentLoaded", async () => {
   const hostname = await getActiveHostname();
+  const { deviceConnected } = await chrome.storage.local.get("deviceConnected");
+
+  espBtn.textContent = deviceConnected ? "Connected" : "Disconnected"
 
   // Read SYSTEM TRUTH
   chrome.storage.local.get(["absoluteFocusmode", "isLogged", "username"], (data) => {
@@ -181,8 +185,18 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   userBtn.addEventListener("click", async () => {
     chrome.tabs.create({ url: chrome.runtime.getURL("login.html") });
-  })
-})
+  });
+
+  espBtn.addEventListener("click", async () => {
+    const deviceId = await getDeviceIdFromESP32();
+    if (!deviceId) return;
+    await chrome.storage.local.set({ deviceId: deviceId });
+    await chrome.storage.local.set({ deviceConnected: true });
+    await sendTo_server("POST", "/device/add", deviceId);
+    espBtn.textContent = "Connected";
+
+  });
+});
 
 // -------------------- Timer (UI only) --------------------
 async function updateTimer() {
@@ -449,6 +463,29 @@ async function sendTo_server(method, endpoint, payload) {
     return true;
   } catch (err) {
     console.error("sendTo_server failed:", err);
+    return null;
+  }
+}
+
+
+// ======================================================
+// Fetching esp32 id
+// ======================================================
+
+async function getDeviceIdFromESP32() {
+  try {
+    const espIp = "192.168.4.10";
+    const res = await fetch(`http://${espIp}/device-info`);
+
+    if (!res.ok) {
+      console.error("ESP32 not reachable or returned error:", res.status);
+      return null;
+    }
+
+    const data = await res.json();
+    return data.device_id;
+  } catch (err) {
+    console.error("Failed to fetch device ID from ESP32:", err);
     return null;
   }
 }

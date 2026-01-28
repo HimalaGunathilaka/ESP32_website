@@ -262,3 +262,33 @@ body {
 .view-active {
     display: block;
 }
+
+.esp-btn{
+    width: 100%;
+    max-width: 120px;
+    margin: 0 auto;
+    display: block;
+
+    padding: 6px 10px;
+    font-size: 12px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    background-color: #ff7777;
+    color: #333;
+    transition: background-color 0.3s ease;
+}
+
+.esp-btn:hover {
+    background-color: #e0e0e0;
+}
+
+.esp-btn.connected {
+    background-color: #4CAF50;
+    color: white;
+}
+
+.esp-btn.disconnected {
+    background-color: #f44336;
+    color: white;
+}
