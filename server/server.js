@@ -35,100 +35,6 @@ const client_MONGO = new MongoClient(MONGO_URI, {
 
 let db, userCol;
 
-// ============================================================
-// MQTT
-// ============================================================
-// const mqtt = require("mqtt");
-// let client_MQTT = null;
-
-// function initializeMQTT() {
-//     client_MQTT = mqtt.connect(MQTT_BROKER, {
-//         username: process.env.MQTT_USER,
-//         password: process.env.MQTT_PASS
-//     });
-
-//     client_MQTT.on("connect", () => {
-//         console.log("MQTT connected!");
-//         client_MQTT.subscribe("focus/block/extension", (err) => {
-//             if (err) {
-//                 console.error("MQTT subscription error:", err);
-//             }
-//         });
-//         client_MQTT.subscribe("focus/command");
-//         client_MQTT.subscribe("focus/activate");
-//     });
-
-//     client_MQTT.on("message", async (topic, message) => {
-//         // message is buffer
-//         console.log(message.toString());
-//         const msg = message.toString();
-
-//         if (topic === "focus/block/extension") {
-
-//             if (msg.length < 3 || msg[1] !== "|") {
-//                 console.warn("Invalid MQTT payload:", msg);
-//                 return;
-//             }
-//             const cmd = msg[0];
-//             const url = msg.slice(2);
-
-//             switch (cmd) {
-//                 case "a":
-//                     // await putDocument_BLOCKED(url);
-//                     break;
-//                 case "d":
-//                     // await removeDocument_BLOCKED(url);
-//                     break;
-//                 case "g":
-//                     const blocked = await getAll_BLOCKED();
-//                     client_MQTT.publish("focus/block/server",
-//                         "s|blocklist",);
-
-//                     blocked.forEach(link => {
-//                         client_MQTT.publish("focus/block/server", `a|${link}`);
-//                     });
-//                     client_MQTT.publish("focus/block/server", "e|blocklist");
-//                     break;
-//                 case "t":
-//                     const day = url.slice(0, 10);
-//                     const total_time = url.slice(11);
-//                     console.log(total_time);
-//                     await putTotalTime(total_time, day);
-//                     break;
-//                 // case "s":
-//                 //     if (focusMode) {
-//                 //         client_MQTT.publish("focus/command", "act");
-//                 //     } else {
-//                 //         client_MQTT.publish("focus/command", "dact");
-//                 //     }
-//                 //     break;
-//             }
-//         }
-//         /*else if (topic === "focus/command") {
-//            switch (msg) {
-//                case "act":
-//                    focusMode = true;
-//                    break;
-//                case "dact":
-//                    focusMode = false;
-//            }
-//        }*/
-//         else if (topic === "focus/activate") {
-//             if (msg === "d|c") {
-//                 // sessioncount = sessioncount + 1;
-//                 await putSessionCount(1);
-//             }
-//         }
-//     });
-
-//     client_MQTT.on("error", (err) => {
-//         console.error("MQTT error:", err);
-//     })
-// }
-
-// ==============================================================
-// mongodb initialization
-// ==============================================================
 
 async function initMongo() {
     await client_MONGO.connect();
@@ -149,6 +55,22 @@ app.get('/', (req, res) => {
 // =========================================================
 // mongoDB requests
 // =========================================================
+
+async function putDevice_id(deviceId, currentUser) {
+    return await userCol.updateOne(
+        { userId: currentUser },
+        { $set: { deviceId } }
+    );
+}
+
+async function getDevice_id(currentUser) {
+    const user = await userCol.findOne(
+        { userId: currentUser },
+        { projection: { _id: 0, deviceId: 1 } }
+    );
+    return user?.deviceId || null;
+}
+
 
 async function putDocument_BLOCKED(url, currentUser) {
     try {
@@ -300,6 +222,7 @@ app.post('/add-user', async (req, res) => {
         const newUser = {
             userId: username,
             email: email,
+            deviceId: "",
             password: hashedPassword,
             blockList: [],
             total_time: {},
@@ -359,6 +282,26 @@ app.post('/login', async (req, res) => {
         res.status(500).json({ message: "Internal server error" });
     }
 });
+
+// ===============================
+// Other Websockets 
+// ===============================
+
+app.post("/device/put", authenticateJWT, async (req, res) => {
+    const { deviceId } = req.body;
+    if (!deviceId) {
+        return res.status(400).json({ message: "deviceId required" });
+    }
+
+    await putDevice_id(deviceId, req.user.userId);
+    res.json({ ok: true });
+});
+
+app.get("/device/get", authenticateJWT, async (req, res) => {
+    const deviceId = await getDevice_id(req.user.userId);
+    res.json({ deviceId });
+});
+
 
 app.post("/url/add", authenticateJWT, async (req, res) => {
     const { url } = req.body;
