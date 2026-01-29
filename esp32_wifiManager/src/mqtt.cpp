@@ -57,9 +57,18 @@ void attemptMQTT()
   client.setServer(mqttBroker.c_str(), mqttPort);
   client.setCallback(callback);
 
+  // ------------------------
+  // Connect with Last Will & Testament
+  // ------------------------
+  // Parameters: clientId, username, password, willTopic, willQos, willRetain, willMessage
   if (client.connect("ESP32Client",
                      mqttUsername.c_str(),
-                     mqttPassword.c_str()))
+                     mqttPassword.c_str(),
+                     "esp/status",
+                     1,
+                     true,
+                     "offline",
+                     false))
   {
     Serial.println("connected");
     client.subscribe("focus/activate");

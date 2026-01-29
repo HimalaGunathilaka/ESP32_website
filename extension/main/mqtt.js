@@ -94,17 +94,12 @@ async function initializeMQTT() {
                 }
                 break;
             }
-            // case "esp/connected": {
-            //     if (payload === "yes") {
-            //         await chrome.storage.local.set({ deviceConnected: true });
-            //     } else if (payload === "no") {
-            //         const result = sendTo_server("GET", "/device/get");
-            //         if (result) {
-            //             await chrome.storage.local.set({ deviceId: result });
-            //         }
-            //     }
-            //     break;
-            // }
+            case "esp/status": {
+                if (payload === "offline") {
+                    await chrome.storage.local.set({ deviceConnected: false });
+                }
+                break;
+            }
         }
         console.log(payload);
     };
@@ -122,22 +117,13 @@ async function initializeMQTT() {
                 }
 
                 client.subscribe("focus/#");
-                // client.subscribe("esp/connected");
-
-                // Fetch the state of focus from server
-                // const fetchState = new Paho.MQTT.Message("s|----");
-                // fetchState.destinationName = "focus/block/extension";
-                // client.send(fetchState);
+                client.subscribe("esp/status");
 
                 const { deviceId } = await chrome.storage.local.get("deviceId");
                 if (deviceId !== "") {
-                    // const isDeviceConnected = new Paho.MQTT.Message(`check|${deviceId}`);
-                    // isDeviceConnected.destinationName = "esp/connected";
-                    // client.send(isDeviceConnected);
-
                     const id = await fetchDeviceId();
-                    if(id){
-                        chrome.storage.local.set({deviceId:id});
+                    if (id) {
+                        chrome.storage.local.set({ deviceId: id });
                     }
                 } else {
                     const result = await sendTo_server("GET", "/device/get");

@@ -75,6 +75,14 @@ document.addEventListener("DOMContentLoaded", async () => {
   chrome.storage.onChanged.addListener(async (changes, area) => {
     if (area !== "local") return;
 
+    if (changes.deviceConnected) {
+      if (!changes.deviceConnected.newValue) {
+        espBtn.classList.remove("active");
+        espBtn.textContent = "Disconnected";
+      }
+    }
+
+
     if (changes.isLogged) {
       if (changes.isLogged.newValue) {
         const { username } = await chrome.storage.local.get("username");
