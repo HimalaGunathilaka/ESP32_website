@@ -262,8 +262,8 @@ async function renderTime(secs) {
   const seconds = secs % 60;
 
   document.getElementById("timer").textContent =
-    `${String(hours).padStart(2, "0")} h:` +
-    `${String(minutes).padStart(2, "0")} min`;
+    `${String(hours).padStart(2, "0")}h : ` +
+    `${String(minutes).padStart(2, "0")}min`;
 
   // Update circular progress bar based on current session time
   const { sessionTime } = await chrome.storage.local.get("sessionTime");
@@ -289,7 +289,7 @@ function renderTotalTime(secs) {
 
   const el = document.getElementById("totalTime");
   if (el) {
-    el.textContent = `Total: ${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+    el.textContent = `Total: ${String(hours).padStart(2, "0")}h : ${String(minutes).padStart(2, "0")}min`;
   }
 }
 
