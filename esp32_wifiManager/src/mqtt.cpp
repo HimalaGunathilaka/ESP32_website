@@ -27,34 +27,24 @@ void callback(char *topic, byte *payload, unsigned int length)
   Serial.print("Payload: ");
   Serial.println(msg);
 
-  if (strcmp(topic, "focus/activate"))
+  if (strcmp(msg, "activate") == 0)
   {
-    if (strcmp(msg, "activate") == 0)
-    {
-      // if (!focusMode)
-      //   count_focus++;
-      focusMode = true;
-      applyFocusState();
-    }
-    else if (strncmp(msg, "d|c", 3) == 0)
-    {
-      focusMode = false;
-      sessionComplete = true;
-      applyFocusState();
-    }
-    else if (strncmp(msg, "d|n", 3) == 0)
-    {
-      focusMode = false;
-      handleFocusEnd(msg);
-      applyFocusState();
-    }
+    // if (!focusMode)
+    //   count_focus++;
+    focusMode = true;
+    applyFocusState();
   }
-  else if (strcmp(topic, "esp/connected"))
+  else if (strncmp(msg, "d|c", 3) == 0)
   {
-    if (strcmp(msg, "check"))
-    {
-      client.publish(topic, "yes");
-    }
+    focusMode = false;
+    sessionComplete = true;
+    applyFocusState();
+  }
+  else if (strncmp(msg, "d|n", 3) == 0)
+  {
+    focusMode = false;
+    handleFocusEnd(msg);
+    applyFocusState();
   }
 }
 

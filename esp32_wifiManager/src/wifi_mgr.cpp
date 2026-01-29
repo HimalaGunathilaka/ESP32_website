@@ -2,7 +2,6 @@
 #include <WebServer.h>
 #include <Preferences.h>
 
-
 // For broker link
 #define BROKER 64
 

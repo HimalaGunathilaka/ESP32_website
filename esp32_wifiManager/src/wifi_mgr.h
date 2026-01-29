@@ -3,9 +3,6 @@
 
 #include <WiFiManager.h>
 #include <WebServer.h>
-// #include <ESPAsyncWebServer.h>
-
-// extern AsyncWebServer server;
 
 extern WiFiManager wm;
 
