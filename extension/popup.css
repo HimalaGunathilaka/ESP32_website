@@ -293,3 +293,24 @@ body {
     background-color: #f44336;
     color: white;
 }
+
+/* Active / operating state */
+.esp-btn.active {
+    background-color: #6dff2a; /* bright blue */
+    color: white;
+    box-shadow: 0 0 8px rgba(33, 150, 243, 0.7);
+    animation: pulse 1.5s infinite;
+}
+
+/* Optional pulse animation */
+@keyframes pulse {
+    0% {
+        box-shadow: 0 0 8px rgba(33, 150, 243, 0.7);
+    }
+    50% {
+        box-shadow: 0 0 16px rgba(33, 150, 243, 0.9);
+    }
+    100% {
+        box-shadow: 0 0 8px rgba(33, 150, 243, 0.7);
+    }
+}

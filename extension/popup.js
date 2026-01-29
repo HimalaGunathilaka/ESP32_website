@@ -50,6 +50,9 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   espBtn.textContent = deviceConnected ? "Connected" : "Disconnected"
 
+  if (deviceConnected) { espBtn.classList.add("active"); } else { espBtn.classList.remove("active"); }
+
+
   // Read SYSTEM TRUTH
   chrome.storage.local.get(["absoluteFocusmode", "isLogged", "username"], (data) => {
     const active = data.absoluteFocusmode ?? false;
@@ -202,8 +205,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     await chrome.storage.local.set({ deviceId });
     await chrome.storage.local.set({ deviceConnected: true });
 
-    await sendTo_server("POST", "/device/put", {deviceId});
-    espBtn.textContent = deviceId;
+    await sendTo_server("POST", "/device/put", { deviceId });
+    espBtn.textContent = "Connected";
+    espBtn.classList.add("active");
   });
 
 });
