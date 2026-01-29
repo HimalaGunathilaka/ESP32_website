@@ -39,6 +39,14 @@ const espBtn = document.getElementById("espBtn");
 document.addEventListener("DOMContentLoaded", async () => {
   const hostname = await getActiveHostname();
   const { deviceConnected } = await chrome.storage.local.get("deviceConnected");
+  const { isLogged } = await chrome.storage.local.get("isLogged");
+
+  if (isLogged) {
+    espBtn.style.visibility = "visible";
+  } else {
+    espBtn.style.visibility = "hidden";
+
+  }
 
   espBtn.textContent = deviceConnected ? "Connected" : "Disconnected"
 
@@ -190,12 +198,17 @@ document.addEventListener("DOMContentLoaded", async () => {
   espBtn.addEventListener("click", async () => {
     const deviceId = await getDeviceIdFromESP32();
     if (!deviceId) return;
-    await chrome.storage.local.set({ deviceId: deviceId });
+
+    await chrome.storage.local.set({ deviceId });
     await chrome.storage.local.set({ deviceConnected: true });
+
+    // ⏳ wait until internet is back
+    await waitForInternet();
+
     await sendTo_server("POST", "/device/add", deviceId);
     espBtn.textContent = "Connected";
-
   });
+
 });
 
 // -------------------- Timer (UI only) --------------------
@@ -488,4 +501,24 @@ async function getDeviceIdFromESP32() {
     console.error("Failed to fetch device ID from ESP32:", err);
     return null;
   }
+}
+
+
+// ==============================================
+// Remove after server is hosted.
+// ==============================================
+function waitForInternet() {
+  return new Promise((resolve) => {
+    if (navigator.onLine) {
+      resolve();
+      return;
+    }
+
+    const handler = () => {
+      window.removeEventListener("online", handler);
+      resolve();
+    };
+
+    window.addEventListener("online", handler);
+  });
 }

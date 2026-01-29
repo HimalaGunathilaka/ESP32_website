@@ -264,6 +264,7 @@ body {
 }
 
 .esp-btn{
+    visibility: hidden;
     width: 100%;
     max-width: 120px;
     margin: 0 auto;
