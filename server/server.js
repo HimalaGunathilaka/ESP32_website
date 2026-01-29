@@ -1,6 +1,5 @@
 require('dotenv').config(); // load .env
 const MONGO_URI = process.env.MONGO_URI;
-const MQTT_BROKER = process.env.MQTT_BROKER;
 
 
 // =====================================================
@@ -160,15 +159,6 @@ app.listen(port, async () => {
     console.log(`Server listening at http://localhost:${port}`);
     // Enable JSON body parsing
     await initMongo();
-
-    // if (process.env.MQTT_BROKER) {
-    //     console.log("MQTT enabled");
-    //     initializeMQTT();
-    // } else {
-    //     console.log("MQTT disabled (no broker configured)");
-    // }
-
-
 
     try {
         await userCol.createIndex(
