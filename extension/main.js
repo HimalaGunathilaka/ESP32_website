@@ -60,17 +60,16 @@ async function resetTotal_time() {
 }
 
 
-
-initializeMQTT();
+// initializeMQTT();
 
 
 // ===============================
 // Keep alive - Since the extension it self can become idle (Even if the inbuilt heart beat of mqtt)
 // ===============================
-chrome.alarms.create("mqttPing", { periodInMinutes: 0.5 });
 
 chrome.alarms.onAlarm.addListener(async (alaram) => {
-    if (alaram.name === "mqttPing") {
+    const { isLogged } = await chrome.storage.local.get("isLogged");
+    if (alaram.name === "mqttPing" && isLogged) {
         if (!client || !client.isConnected()) initializeMQTT();
     }
     else if (alaram.name === "focusSessionEnd") {

@@ -196,17 +196,14 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
 
   espBtn.addEventListener("click", async () => {
-    const deviceId = await getDeviceIdFromESP32();
+    const deviceId = await fetchDeviceId();
     if (!deviceId) return;
 
     await chrome.storage.local.set({ deviceId });
     await chrome.storage.local.set({ deviceConnected: true });
 
-    // ⏳ wait until internet is back
-    await waitForInternet();
-
-    await sendTo_server("POST", "/device/add", deviceId);
-    espBtn.textContent = "Connected";
+    await sendTo_server("POST", "/device/put", {deviceId});
+    espBtn.textContent = deviceId;
   });
 
 });
@@ -481,44 +478,15 @@ async function sendTo_server(method, endpoint, payload) {
 }
 
 
-// ======================================================
-// Fetching esp32 id
-// ======================================================
 
-async function getDeviceIdFromESP32() {
+async function fetchDeviceId() {
   try {
-    const espIp = "192.168.4.10";
-    const res = await fetch(`http://${espIp}/device-info`);
-
-    if (!res.ok) {
-      console.error("ESP32 not reachable or returned error:", res.status);
-      return null;
-    }
-
-    const data = await res.json();
+    const resp = await fetch("http://esp32.local/device-info");
+    const data = await resp.json();
+    console.log("Device ID:", data.device_id);
     return data.device_id;
   } catch (err) {
-    console.error("Failed to fetch device ID from ESP32:", err);
+    console.error("Could not reach ESP32:", err);
     return null;
   }
-}
-
-
-// ==============================================
-// Remove after server is hosted.
-// ==============================================
-function waitForInternet() {
-  return new Promise((resolve) => {
-    if (navigator.onLine) {
-      resolve();
-      return;
-    }
-
-    const handler = () => {
-      window.removeEventListener("online", handler);
-      resolve();
-    };
-
-    window.addEventListener("online", handler);
-  });
 }

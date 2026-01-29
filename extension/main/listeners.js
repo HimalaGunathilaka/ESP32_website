@@ -6,6 +6,19 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
 
     const abs = await chrome.storage.local.get("absoluteFocusmode");
 
+    if (changes.isLogged) {
+        if (changes.isLogged.newValue) {
+            initializeMQTT();
+            chrome.alarms.create("mqttPing", { periodInMinutes: 0.5 });
+
+            const id = await fetchDeviceId();
+            if (id) {
+                chrome.storage.local.set({ deviceId: id });
+            }
+
+        }
+    }
+
     if (changes.username && changes.username !== "Guest") {
         const data = await sendTo_server("GET", "/url/list");
 

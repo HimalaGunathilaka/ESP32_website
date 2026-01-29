@@ -55,3 +55,16 @@ async function sendTo_server(method, endpoint, payload) {
         return null;
     }
 }
+
+
+async function fetchDeviceId() {
+  try {
+    const resp = await fetch("http://esp32.local/device-info");
+    const data = await resp.json();
+    console.log("Device ID:", data.device_id);
+    return data.device_id;
+  } catch (err) {
+    console.error("Could not reach ESP32:", err);
+    return null;
+  }
+}
