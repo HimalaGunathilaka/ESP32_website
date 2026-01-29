@@ -60,7 +60,7 @@ async function resetTotal_time() {
 }
 
 
-// initializeMQTT();
+initializeMQTT();
 
 
 // ===============================
@@ -68,8 +68,7 @@ async function resetTotal_time() {
 // ===============================
 
 chrome.alarms.onAlarm.addListener(async (alaram) => {
-    const { isLogged } = await chrome.storage.local.get("isLogged");
-    if (alaram.name === "mqttPing" && isLogged) {
+    if (alaram.name === "mqttPing") {
         if (!client || !client.isConnected()) initializeMQTT();
     }
     else if (alaram.name === "focusSessionEnd") {
@@ -84,8 +83,10 @@ chrome.alarms.onAlarm.addListener(async (alaram) => {
 
 async function achieveSession() {
     await chrome.storage.local.set({ sessionComplete: true });
+    // Only trigger confetti for natural session completions, not early deactivations
     const { sessionCompleteIndicator } = await chrome.storage.local.get("sessionCompleteIndicator");
-    await chrome.storage.local.set({ sessionCompleteIndicator: !sessionCompleteIndicator })
+    await chrome.storage.local.set({ sessionCompleteIndicator: !sessionCompleteIndicator });
+    await chrome.storage.local.set({ naturalCompletion: true }); // Flag for confetti
     sessionSrc = true;  // Set BEFORE focusMode changes to avoid race condition
     await chrome.storage.local.set({ focusMode: false });
 }

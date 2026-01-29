@@ -14,6 +14,8 @@ bool sessionComplete = false;
 unsigned long lastMQTTAttempt = 0;
 const unsigned long mqttRetryInterval = 5000;
 
+bool statusSent = false;
+
 // ---------------------------------------------
 // MQTT
 // ---------------------------------------------
@@ -88,6 +90,7 @@ void tryReconnecting_MQTT()
   if (!client.connected() && count == 1)
   {
     unsigned long now = millis();
+    statusSent = false;
 
     if (now - lastMQTTAttempt > mqttRetryInterval)
     {
@@ -95,6 +98,11 @@ void tryReconnecting_MQTT()
       digitalWrite(ONBOARD_LED, LOW);
       attemptMQTT();
     }
+  }
+  else if (!statusSent)
+  {
+    client.publish("esp/status", "online");
+    statusSent = true;
   }
 }
 

@@ -97,6 +97,8 @@ async function initializeMQTT() {
             case "esp/status": {
                 if (payload === "offline") {
                     await chrome.storage.local.set({ deviceConnected: false });
+                } else if (payload === "online") {
+                    await chrome.storage.local.set({ deviceConnected: true });
                 }
                 break;
             }

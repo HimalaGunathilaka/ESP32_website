@@ -90,7 +90,7 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
 
         }
 
-        if (isEnabled) {
+        if (isEnabled === true) {
             const { sessionTime } = await chrome.storage.local.get("sessionTime");
             chrome.alarms.create("focusSessionEnd", { delayInMinutes: sessionTime });
         } else {
