@@ -23,8 +23,8 @@ function renderTime(secs) {
   const seconds = secs % 60;
 
   document.getElementById("timer").textContent =
-    `${String(hours).padStart(2, "0")}:` +
-    `${String(minutes).padStart(2, "0")}`;
+    `${String(hours).padStart(2, "0")} h:` +
+    `${String(minutes).padStart(2, "0")} min`;
 }
 
 

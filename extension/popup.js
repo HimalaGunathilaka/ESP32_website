@@ -79,6 +79,9 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (!changes.deviceConnected.newValue) {
         espBtn.classList.remove("active");
         espBtn.textContent = "Disconnected";
+      } else {
+        espBtn.classList.add("active");
+        espBtn.textContent = "Connected";
       }
     }
 
@@ -92,8 +95,19 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       }
     }
+
+    if (changes.sessionTime) {
+      // Immediately update progress bar with new session time
+      updateTimer();
+    }
     if (changes.sessionCompleteIndicator) {
-      celebrateSession();
+      // Only celebrate if this was a natural completion (timer-based), not early deactivation
+      const { naturalCompletion } = await chrome.storage.local.get("naturalCompletion");
+      if (naturalCompletion) {
+        celebrateSession();
+        // Reset the flag after celebration
+        await chrome.storage.local.set({ naturalCompletion: false });
+      }
     }
 
     // Handle absoluteFocusmode changes
@@ -236,7 +250,7 @@ async function updateTimer() {
   }
 
   await renderTime(sessionSecs);
-  renderTotalTime(total_time + sessionSecs);
+  renderTotalTime(total_time + sessionSecs);f
 }
 
 // ++++++++++++++++++++++++++++++++++++++++++++++
@@ -248,12 +262,12 @@ async function renderTime(secs) {
   const seconds = secs % 60;
 
   document.getElementById("timer").textContent =
-    `${String(hours).padStart(2, "0")}:` +
-    `${String(minutes).padStart(2, "0")}`;
+    `${String(hours).padStart(2, "0")} h:` +
+    `${String(minutes).padStart(2, "0")} min`;
 
-  // Update circular progress bar (max 8 hours)
+  // Update circular progress bar based on current session time
   const { sessionTime } = await chrome.storage.local.get("sessionTime");
-  const maxTime = sessionTime * 60; // 25 minutes in seconds
+  const maxTime = sessionTime * 60; // sessionTime is in minutes, convert to seconds
   const progress = Math.min(secs / maxTime, 1); // Cap at 100%
   const circumference = 534.07;
   const offset = circumference * (1 - progress);

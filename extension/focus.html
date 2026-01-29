@@ -18,7 +18,10 @@
 
         /* The card */
         .card {
-            background: rgba(10, 236, 78, 0.74);
+            background: linear-gradient(135deg, #44e9bf 0%, #28f58f 100%);
+
+            box-shadow: 0 4px 15px rgba(39, 99, 47, 0.4);
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
             /* slight transparency */
             backdrop-filter: blur(10px);
             /* nice frosted effect */
@@ -60,9 +63,9 @@
     <div class="card">
         <div class="emoji">🎯</div>
         <h1>Focus Mode Activated!</h1>
-        <p>Stay focused on what matters</p>
+        <!-- <p>Stay focused on what matters</p> -->
         <h2>Focused time:</h2>
-        <div id="timer">00:00</div>
+        <div id="timer">00 h:00 min</div>
     </div>
     <script src="focus.js"></script>
 </body>
