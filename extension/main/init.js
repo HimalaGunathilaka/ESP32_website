@@ -3,6 +3,7 @@ chrome.storage.local.get(
     ["focusMode", "total_time", "absoluteFocusmode",
         "start", "block", "command", "urlMutex",
         "sessionComplete", "sessionCompleteIndicator", "sessionTime",
+        "naturalCompletion",
         "isLogged", "username", "token",
         "deviceId", "deviceConnected",
     ],
@@ -59,9 +60,15 @@ chrome.storage.local.get(
             })
         }
 
+        if (data.naturalCompletion === undefined) {
+            chrome.storage.local.set({
+                naturalCompletion: false
+            });
+        }
+
         if (data.sessionTime === undefined) {
             chrome.storage.local.set({
-                sessionTime: 1 // In minutes
+                sessionTime: 2 // In minutes
             })
         }
 
