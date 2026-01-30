@@ -250,7 +250,7 @@ async function updateTimer() {
   }
 
   await renderTime(sessionSecs);
-  renderTotalTime(total_time + sessionSecs);f
+  renderTotalTime(total_time + sessionSecs);
 }
 
 // ++++++++++++++++++++++++++++++++++++++++++++++
