@@ -1,7 +1,8 @@
 // -------------------- Init storage safely --------------------
 chrome.storage.local.get(
     ["focusMode", "total_time", "absoluteFocusmode",
-        "start", "block", "command", "urlMutex",
+        "start", "date",
+        "block", "command", "urlMutex",
         "sessionComplete", "sessionCompleteIndicator", "sessionTime",
         "naturalCompletion",
         "isLogged", "username", "token",
@@ -19,6 +20,9 @@ chrome.storage.local.get(
 
         if (data.start === undefined)
             chrome.storage.local.set({ start: 0 });
+
+        if (data.date === undefined)
+            chrome.storage.local.set({ date: new Date()});
 
         // The blocked list
         if (data.block === undefined)

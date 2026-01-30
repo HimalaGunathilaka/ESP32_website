@@ -39,8 +39,23 @@ const COOLOFF_TIME = 5000;
 // -------------------- Time tracking --------------------
 async function elapsedSeconds() {
     const end = Date.now();
+    const today = new Date();
+    const { date } = await chrome.storage.local.get("date");
+
     const { start = 0, total_time = 0 } =
         await chrome.storage.local.get(["start", "total_time"]);
+
+    if (date && new Date(date).toDateString() !== today.toDateString()) {
+        sendTo_server("POST", "/time/total", total_time);
+
+        await chrome.storage.local.set({
+            start: 0,
+            total_time: 0
+        });
+        return;
+    }
+
+
 
     // This condition is set for whenever start was not captured 
     // which implies do not calculate elapsed time for that instance.

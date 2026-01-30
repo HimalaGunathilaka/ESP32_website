@@ -119,6 +119,7 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
 
         if (start === 0) {
             await chrome.storage.local.set({ start: Date.now() });
+            await chrome.storage.local.set({ date: new Date().toISOString().split('T')[0] })
         }
 
         await enableRedirectRules();

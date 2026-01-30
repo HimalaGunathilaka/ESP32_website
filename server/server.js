@@ -242,6 +242,16 @@ app.post("/session/complete", authenticateJWT, async (req, res) => {
     }
 });
 
+app.post("/time/total", authenticateJWT, async (req, res) => {
+    try {
+        await putTotalTime(req.user.total_time);
+        res.json({ ok: true });
+    } catch (err) {
+        console.error("POST /time/total error:", err);
+        res.status(500).json({ message: "Internal server error" });
+    }
+})
+
 app.get("/auth/verify", authenticateJWT, (req, res) => {
     res.json({ ok: true, userId: req.user.userId });
 });
