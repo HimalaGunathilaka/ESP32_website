@@ -1,6 +1,18 @@
 require('dotenv').config(); // load .env
 const MONGO_URI = process.env.MONGO_URI;
 
+const {
+    putDevice_id,
+    getDevice_id,
+    putDocument_BLOCKED,
+    putSessionCount,
+    removeDocument_BLOCKED,
+    getAll_BLOCKED,
+    putTotalTime,
+    getDateKeySL,
+    setUserCollection
+} = require('./serverModules/mongo_calls.js');
+
 
 // =====================================================
 // For login / register system
@@ -39,6 +51,8 @@ async function initMongo() {
     await client_MONGO.connect();
     db = client_MONGO.db("testUser");
     userCol = db.collection("users");
+
+    setUserCollection(userCol);
     console.log("MongoDB connected!");
 }
 
@@ -49,107 +63,6 @@ async function initMongo() {
 app.get('/', (req, res) => {
     res.send('Hello from EXPRESS!');
 });
-
-
-// =========================================================
-// mongoDB requests
-// =========================================================
-
-async function putDevice_id(deviceId, currentUser) {
-    return await userCol.updateOne(
-        { userId: currentUser },
-        { $set: { deviceId } }
-    );
-}
-
-async function getDevice_id(currentUser) {
-    const user = await userCol.findOne(
-        { userId: currentUser },
-        { projection: { _id: 0, deviceId: 1 } }
-    );
-    return user?.deviceId || null;
-}
-
-
-async function putDocument_BLOCKED(url, currentUser) {
-    try {
-        const result = await userCol.updateOne(
-            { userId: currentUser, blockList: { $ne: url } },
-            { $addToSet: { blockList: url } }
-        );
-        if (result.modifiedCount > 0) {
-            console.log(`${url} was submitted!`);
-        } else {
-            console.log(`${url} already exists`);
-        }
-    } catch (err) {
-        console.error("Insert error:", err);
-    }
-}
-
-async function putSessionCount(count, currentUser) {
-    try {
-        const dateKey = getDateKeySL();
-
-        return await userCol.updateOne(
-            { userId: currentUser },
-            { $inc: { [`sessionsCompleted.${dateKey}`]: count } }
-        );
-    } catch (err) {
-        console.error(err);
-    }
-}
-
-
-async function removeDocument_BLOCKED(url, currentUser) {
-    try {
-        const res = await userCol.updateOne(
-            { userId: currentUser },
-            { $pull: { blockList: url } }
-        );
-        console.log(`${url} was removed (${res.modifiedCount} modified)`);
-    } catch (err) {
-        console.error("Delete error:", err);
-    }
-}
-
-async function getAll_BLOCKED(currentUser) {
-    try {
-        const user = await userCol.findOne(
-            { userId: currentUser },
-            { projection: { _id: 0, blockList: 1 } }
-        );
-        return user ? user.blockList : [];
-    } catch (err) {
-        console.error("Fetch error:", err);
-        return [];
-    }
-}
-
-async function putTotalTime(total_time, day, currentUser) {
-    try {
-        const res = await userCol.updateOne(
-            { userId: currentUser },
-            { $set: { [`total_time.${day}`]: parseInt(total_time) } }
-        );
-        console.log(`Total time for ${day} is saved: ${total_time}`);
-    } catch (err) {
-        console.error("Insert Error:", err);
-    }
-}
-// Output
-/* 
-[
-  { url: "example.com" },
-  { url: "google.com" }
-]
-*/
-
-function getDateKeySL() {
-    return new Date().toLocaleDateString("en-CA", {
-        timeZone: "Asia/Colombo"
-    });
-}
 
 
 // ==========================================================
@@ -263,7 +176,7 @@ app.post('/login', async (req, res) => {
         const accessToken = jwt.sign(
             payload,
             process.env.TOKEN_SECRET,
-            { expiresIn: "1h" }
+            { expiresIn: "1m" }
         );
 
         res.json({ accessToken });
@@ -336,62 +249,20 @@ app.get("/auth/verify", authenticateJWT, (req, res) => {
 function authenticateJWT(req, res, next) {
     const authHeader = req.headers.authorization;
 
-    if (!authHeader) return res.sendStatus(401);
+    if (!authHeader) return res.status(401).json({ message: "No token provided" });
 
     const token = authHeader.split(" ")[1];
 
     jwt.verify(token, process.env.TOKEN_SECRET, (err, user) => {
-        if (err) return res.sendStatus(403);
+        if (err) {
+            if (err.name === "TokenExpiredError") {
+                return res.status(401).json({ message: "Token expired" });
+            } else {
+                return res.status(403).json({ message: "Invalid token" });
+            }
+        }
 
         req.user = user;
-
         next();
     });
 }
-
-// =======================================================
-// =======================================================
-
-const WebSocket = require("ws");
-
-const wss = new WebSocket.Server({ port: 8081 });
-
-wss.on("connection", (ws) => {
-    console.log("WS connected");
-
-
-    ws.isAuthenticated = false;
-
-    ws.on("message", (data) => {
-        try {
-            const msg = JSON.parse(data);
-
-            // First message must be auth
-            if (msg.type === "auth") {
-                jwt.verify(msg.token, process.env.TOKEN_SECRET, (err, user) => {
-                    if (err) {
-                        ws.send(JSON.stringify({ type: "error", message: "Auth failed" }));
-                        ws.close();
-                        return;
-                    }
-
-                    ws.user = user;
-                    currentUser = user;
-                    ws.isAuthenticated = true;
-                    ws.send(JSON.stringify({ type: "auth", status: "ok" }));
-                });
-                return;
-            }
-
-            if (!ws.isAuthenticated) {
-                ws.close();
-                return;
-            }
-
-            // Normal messages
-            console.log("User message:", ws.user.userId, msg);
-        } catch (e) {
-            ws.close();
-        }
-    })
-})
