@@ -2,7 +2,7 @@
 chrome.storage.local.get(
     ["focusMode", "total_time", "absoluteFocusmode",
         "start", "date",
-        "block", "command", "urlMutex",
+        "block",  "urlMutex","source",
         "sessionComplete", "sessionCompleteIndicator", "sessionTime",
         "naturalCompletion",
         "isLogged", "username", "token",
@@ -37,14 +37,6 @@ chrome.storage.local.get(
                 urlMutex: "none"  // "none" = no lock, "mqtt" = from MQTT, "local" = from local
             });
 
-        // If a command to change not the focusmode the absolute focus mode occurs
-        // A indicator to say a signal was received.
-        if (data.command === undefined) {
-            chrome.storage.local.set({
-                command: false
-            })
-        }
-
         if (data.source === undefined) {
             chrome.storage.local.set({
                 source: false
@@ -72,7 +64,7 @@ chrome.storage.local.get(
 
         if (data.sessionTime === undefined) {
             chrome.storage.local.set({
-                sessionTime: 2 // In minutes
+                sessionTime: 5 // In minutes
             })
         }
 

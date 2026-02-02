@@ -26,45 +26,41 @@ async function initializeMQTT() {
 
         switch (topic) {
             case "focus/activate":
-                if (payload === "ACTIVATE") {
+                const { isSource } = await chrome.storage.local.get("source");
+
+                // If this is the source of activation. 
+                // No point of listening to the signal they sent.
+                if (isSource) { return; }
+
+                if (payload === "activate") {
                     chrome.storage.local.set({ focusMode: true });
                 }
-                else if (payload === "DEACTIVATE") {
+                else if (payload === "deactivate") {
                     chrome.storage.local.set({ focusMode: false });
                 }
                 else if (payload.startsWith("d|")) {
                     // Handle deactivation with time data
+                    chrome.storage.local.set({ focusMode: false });
+                    const { total_time } = await chrome.storage.local.get("total_time");
 
+                    console.log(`Inside : ${payload}`);
                     if (payload == "d|c") {
                         sessionSrc = false;
+                        const roundTime = Math.ceil(total_time / 25) * 25;
+                        await chrome.storage.local.set({ total_time: roundTime });
                         return;
                     }
                     const timeValue = parseInt(payload.split("|")[1], 10);
-                    const { src } = await chrome.storage.local.get("src");
-                    if (!src) {
-                        await chrome.storage.local.set({ total_time: timeValue });
-                    }
+                    const maxTime = Math.max(timeValue, total_time || 0);
+                    await chrome.storage.local.set({ total_time: maxTime });
+                    const { total_time: tt } = await chrome.storage.local.get("total_time");
+                    console.log(`Inside : ${tt}`);
+
+
                 }
                 break;
-            case "focus/command": {
-                const { source } = await chrome.storage.local.get("source");
-
-                if (!source) {
-                    await chrome.storage.local.set({ command: true });
-
-                    if (payload === "act") {
-                        await chrome.storage.local.set({ focusMode: true });
-                    } else if (payload === "dact") {
-                        await chrome.storage.local.set({ focusMode: false });
-                    }
-                } else {
-                    await chrome.storage.local.set({ source: false });
-                }
-                break;
-            }
             case "focus/block/extension": {
                 const { urlMutex } = await chrome.storage.local.get("urlMutex");
-                console.log("urlMutex:", urlMutex);
 
                 if (urlMutex === "local") {
                     // This is an echo from our own local change, ignore it

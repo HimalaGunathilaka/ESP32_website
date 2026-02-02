@@ -16,6 +16,8 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
                 chrome.storage.local.set({ deviceId: id });
             }
 
+        }else{
+            // disconnect
         }
     }
 
@@ -73,23 +75,7 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
     }
 
     if (changes.absoluteFocusmode) {
-        // console.log("abs was changed!");
-
-        const { command } = await chrome.storage.local.get("command");
-
-        // console.log(command)
-
         const isEnabled = changes.absoluteFocusmode.newValue;
-        if (command === false && client && client.isConnected()) {
-
-            const msg = new Paho.MQTT.Message(isEnabled ? "act" : "dact");
-            msg.destinationName = "focus/command";
-            client.send(msg);
-
-            await chrome.storage.local.set({ source: true });
-
-        }
-
         if (isEnabled === true) {
             const { sessionTime } = await chrome.storage.local.get("sessionTime");
             chrome.alarms.create("focusSessionEnd", { delayInMinutes: sessionTime });
@@ -98,11 +84,6 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
             if (!sessionComplete) {
                 chrome.alarms.clear("focusSessionEnd");
             }
-        }
-
-        // reset command flag if it was set
-        if (command) {
-            await chrome.storage.local.set({ command: false });
         }
     }
 
@@ -132,6 +113,7 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
             const msg = new Paho.MQTT.Message("activate");
             msg.destinationName = "focus/activate";
             client.send(msg);
+            await chrome.storage.local.set({ source: true });
         }
 
     } else {
