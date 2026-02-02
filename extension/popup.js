@@ -6,8 +6,8 @@ const SERVER_BASE = "http://localhost:8080";
 async function focus() {
   // Always read current storage value to avoid sync issues
   const { focusMode: current } = await chrome.storage.local.get("focusMode");
-  console.log("Current focusMode:", current, "-> Setting to:", !current);
-  chrome.storage.local.set({ focusMode: !current });
+  // console.log("Current focusMode:", current, "-> Setting to:", !current);
+  await chrome.storage.local.set({ focusMode: !current });
 }
 
 // Display image only when try to deactivate focus while in cool off
@@ -139,8 +139,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
-  btn.addEventListener("click", () => {
+  btn.addEventListener("click", async () => {
     focus(); // request change only
+    await chrome.storage.local.set({ focusSource: "local" });
   });
 
 

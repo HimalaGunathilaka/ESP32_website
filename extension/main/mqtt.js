@@ -30,31 +30,35 @@ async function initializeMQTT() {
 
                 // If this is the source of activation. 
                 // No point of listening to the signal they sent.
+
                 if (isSource) { return; }
 
                 if (payload === "activate") {
-                    chrome.storage.local.set({ focusMode: true });
+                    await chrome.storage.local.set({focusSource: "mqtt"});
+                    await chrome.storage.local.set({ focusMode: true });
                 }
                 else if (payload === "deactivate") {
-                    chrome.storage.local.set({ focusMode: false });
+                    await chrome.storage.local.set({focusSource: "mqtt"});
+                    await chrome.storage.local.set({ focusMode: false });
                 }
                 else if (payload.startsWith("d|")) {
+                    await chrome.storage.local.set({focusSource: "mqtt"});
                     // Handle deactivation with time data
-                    chrome.storage.local.set({ focusMode: false });
+                    await chrome.storage.local.set({ focusMode: false });
                     const { total_time } = await chrome.storage.local.get("total_time");
 
-                    console.log(`Inside : ${payload}`);
+                    console.log(`Inside 1: ${payload}`);
                     if (payload == "d|c") {
                         sessionSrc = false;
                         const roundTime = Math.ceil(total_time / 25) * 25;
                         await chrome.storage.local.set({ total_time: roundTime });
                         return;
                     }
-                    const timeValue = parseInt(payload.split("|")[1], 10);
+                    const timeValue = parseInt(payload.split("|")[2], 10);
                     const maxTime = Math.max(timeValue, total_time || 0);
                     await chrome.storage.local.set({ total_time: maxTime });
                     const { total_time: tt } = await chrome.storage.local.get("total_time");
-                    console.log(`Inside : ${tt}`);
+                    console.log(`Inside 2: ${tt}`);
 
 
                 }

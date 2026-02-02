@@ -16,8 +16,8 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
                 chrome.storage.local.set({ deviceId: id });
             }
 
-        }else{
-            // disconnect
+        } else {
+            // disconnect mqtt
         }
     }
 
@@ -90,10 +90,9 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
 
     if (!changes.focusMode) return;
 
-    // console.log("Inside")
     const newFocus = changes.focusMode.newValue;
-    // const source = changes.source?.newValue;
     const { start } = await chrome.storage.local.get("start");
+    const { focusSource } = await chrome.storage.local.get("focusSource");
 
 
     if (newFocus) {
@@ -107,9 +106,8 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
         await redirectCurrentTab();
         await chrome.storage.local.set({ absoluteFocusmode: true });
 
-        // console.log("Focus mode ON");
 
-        if (client && client.isConnected()) {
+        if (client && client.isConnected() && focusSource === "local") {
             const msg = new Paho.MQTT.Message("activate");
             msg.destinationName = "focus/activate";
             client.send(msg);
@@ -147,12 +145,19 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
             const { sessionComplete } = await chrome.storage.local.get("sessionComplete");
 
             if (sessionComplete && sessionSrc) {
+                chrome.storage.local.set({ sessionComplete: false });
+                sessionSrc = false;
+                
+                // If this was already received no need to publish it again
+                if (focusSource === "mqtt") return;
+
                 const msg = new Paho.MQTT.Message("d|c");
                 msg.destinationName = "focus/activate";
                 client.send(msg);
-                chrome.storage.local.set({ sessionComplete: false });
-                sessionSrc = false;
             } else {
+                // If this was already received no need to publish it again
+                if (focusSource === "mqtt") return;
+                
                 chrome.storage.local.get(["total_time"], (data) => {
                     const totalTime = data.total_time ?? 0;
                     // Flag to deactivate `d` and total focus time is being sent. 

@@ -2,7 +2,7 @@
 chrome.storage.local.get(
     ["focusMode", "total_time", "absoluteFocusmode",
         "start", "date",
-        "block",  "urlMutex","source",
+        "block",  "urlMutex","source","focusSource",
         "sessionComplete", "sessionCompleteIndicator", "sessionTime",
         "naturalCompletion",
         "isLogged", "username", "token",
@@ -65,6 +65,12 @@ chrome.storage.local.get(
         if (data.sessionTime === undefined) {
             chrome.storage.local.set({
                 sessionTime: 5 // In minutes
+            })
+        }
+
+        if(data.focusSource === undefined){
+            chrome.storage.local.set({
+                focusSource: "local"
             })
         }
 
