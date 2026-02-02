@@ -1,6 +1,7 @@
 require('dotenv').config(); // load .env
 const MONGO_URI = process.env.MONGO_URI;
 
+
 const {
     putDevice_id,
     getDevice_id,
@@ -12,6 +13,9 @@ const {
     getDateKeySL,
     setUserCollection
 } = require('./serverModules/mongo_calls.js');
+
+const swaggerUi = require("swagger-ui-express");
+const swaggerSpec = require("./swagger");
 
 
 // =====================================================
@@ -29,6 +33,13 @@ const port = 8080;
 
 app.use(cors()); // Add this line - enables CORS for all origins
 app.use(express.json());
+
+app.use(
+    "/api-docs",
+    swaggerUi.serve,
+    swaggerUi.setup(swaggerSpec)
+);
+
 
 // A variable to save the current state of the system
 // let focusMode = false;
@@ -99,6 +110,7 @@ app.listen(port, async () => {
 // ============================================
 // login / register
 // ============================================
+
 app.post('/add-user', async (req, res) => {
     try {
         const { username, password, email } = req.body;
@@ -146,6 +158,7 @@ app.post('/add-user', async (req, res) => {
         res.status(500).json({ message: "Internal server error" })
     }
 });
+
 
 app.post('/login', async (req, res) => {
     try {
