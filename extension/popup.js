@@ -68,6 +68,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Check if user is already logged in
     if (data.isLogged && data.username) {
       userBtn.textContent = data.username;
+      userBtn.classList.add("active");
+    } else {
+      userBtn.classList.remove("active");
     }
   });
 

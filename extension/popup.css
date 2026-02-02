@@ -235,24 +235,89 @@ body {
     right: 8px;
     z-index: 10000;
 
+    background: linear-gradient(135deg, #690229, #af7200);
+    color: #fff;
+
     padding: 6px 12px;
     font-size: 12px;
+    font-weight: 500;
+
     border-radius: 6px;
     border: none;
     cursor: pointer;
+
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+    transition:
+        background 0.2s ease,
+        transform 0.15s ease,
+        box-shadow 0.15s ease;
 }
 
-.top-left-btn{
+.top-right-btn:hover {
+    transform: scale(1.08);
+    background: linear-gradient(135deg, #d89200, #690229);
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
+}
+
+.top-right-btn:active {
+    transform: scale(1.02) translateY(1px);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+
+.top-right-btn:focus-visible {
+    outline: 2px solid rgba(255, 200, 80, 0.8);
+    outline-offset: 2px;
+}
+
+.top-left-btn {
     position: fixed;
     top: 8px;
     left: 8px;
     z-index: 10000;
 
+    background: linear-gradient(135deg, #690229, #af7200);
+    color: #fff;
+
     padding: 6px 12px;
     font-size: 12px;
+    font-weight: 500;
+
     border-radius: 6px;
     border: none;
     cursor: pointer;
+
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+    transition:
+        background 0.2s ease,
+        transform 0.15s ease,
+        box-shadow 0.15s ease;
+}
+
+.top-left-btn:hover {
+    transform: scale(1.08);
+    /* slightly less aggressive than 1.1 */
+    background: linear-gradient(135deg, #d89200, #690229);
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
+}
+
+.top-left-btn:active {
+    transform: scale(1.02) translateY(1px);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+    background: linear-gradient(135deg, #005500, #54fa12);
+}
+
+.top-left-btn:focus-visible {
+    outline: 2px solid rgba(255, 200, 80, 0.8);
+    outline-offset: 2px;
+}
+
+.top-left-btn.active {
+    background: linear-gradient(135deg, #005500, #54fa12);
+    box-shadow: 0 0 0 2px rgba(25, 135, 84, 0.4);
+}
+
+.top-left-btn.active:hover {
+    background: linear-gradient(135deg, #54fa12, #005500);
 }
 
 .view {
@@ -263,7 +328,7 @@ body {
     display: block;
 }
 
-.esp-btn{
+.esp-btn {
     visibility: hidden;
     width: 100%;
     max-width: 120px;
@@ -296,7 +361,8 @@ body {
 
 /* Active / operating state */
 .esp-btn.active {
-    background-color: #6dff2a; /* bright blue */
+    background-color: #6dff2a;
+    /* bright blue */
     color: white;
     box-shadow: 0 0 8px rgba(33, 150, 243, 0.7);
     animation: pulse 1.5s infinite;
@@ -307,9 +373,11 @@ body {
     0% {
         box-shadow: 0 0 8px rgba(33, 150, 243, 0.7);
     }
+
     50% {
         box-shadow: 0 0 16px rgba(33, 150, 243, 0.9);
     }
+
     100% {
         box-shadow: 0 0 8px rgba(33, 150, 243, 0.7);
     }
