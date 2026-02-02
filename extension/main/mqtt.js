@@ -34,15 +34,15 @@ async function initializeMQTT() {
                 if (isSource) { return; }
 
                 if (payload === "activate") {
-                    await chrome.storage.local.set({focusSource: "mqtt"});
+                    await chrome.storage.local.set({ focusSource: "mqtt" });
                     await chrome.storage.local.set({ focusMode: true });
                 }
                 else if (payload === "deactivate") {
-                    await chrome.storage.local.set({focusSource: "mqtt"});
+                    await chrome.storage.local.set({ focusSource: "mqtt" });
                     await chrome.storage.local.set({ focusMode: false });
                 }
                 else if (payload.startsWith("d|")) {
-                    await chrome.storage.local.set({focusSource: "mqtt"});
+                    await chrome.storage.local.set({ focusSource: "mqtt" });
                     // Handle deactivation with time data
                     await chrome.storage.local.set({ focusMode: false });
                     const { total_time } = await chrome.storage.local.get("total_time");
@@ -61,7 +61,7 @@ async function initializeMQTT() {
                     console.log(`Inside 2: ${tt}`);
 
 
-                }
+                } 
                 break;
             case "focus/block/extension": {
                 const { urlMutex } = await chrome.storage.local.get("urlMutex");

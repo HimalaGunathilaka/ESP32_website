@@ -117,7 +117,15 @@ async function achieveSession() {
 
 (async () => {
     const valid = await sendTo_server("GET", "/auth/verify");
-    if (valid) console.log("Token is valid");
+    if (valid) {
+        initializeMQTT();
+        console.log("Token is valid");
+
+        // const msgStat = new Paho.MQTT.Message("status");
+        // msgStat.destinationName = "focus/activate";
+        // client.send(msgStat);
+
+    }
     else {
         await chrome.storage.local.set({ username: "Guest" });
         await chrome.storage.local.set({ isLogged: false });
