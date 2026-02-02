@@ -50,6 +50,7 @@ async function initializeMQTT() {
                     console.log(`Inside 1: ${payload}`);
                     if (payload == "d|c") {
                         sessionSrc = false;
+                        
                         const roundTime = Math.ceil(total_time / 25) * 25;
                         await chrome.storage.local.set({ total_time: roundTime });
                         return;

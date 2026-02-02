@@ -64,7 +64,7 @@ chrome.storage.local.get(
 
         if (data.sessionTime === undefined) {
             chrome.storage.local.set({
-                sessionTime: 5 // In minutes
+                sessionTime: 2 // In minutes
             })
         }
 
