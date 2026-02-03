@@ -38,12 +38,20 @@ document.addEventListener("DOMContentLoaded", () => {
             }
             showMessage("Login successful");
 
-            
+
             await chrome.storage.local.set({
                 username,
                 token: data.accessToken,
                 isLogged: true
             });
+
+            setTimeout(() => {
+                chrome.tabs.getCurrent((tab) => {
+                    if (tab?.id) {
+                        chrome.tabs.remove(tab.id);
+                    }
+                });
+            }, 1000);
 
             console.log("Complete");
         } catch (err) {
@@ -84,6 +92,7 @@ document.addEventListener("DOMContentLoaded", () => {
             }
 
             showMessage("Registration successful. Please log in.");
+
 
         } catch (err) {
             showMessage("Server is not running", "error");
