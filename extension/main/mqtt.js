@@ -59,8 +59,8 @@ async function initializeMQTT() {
                     if (maxTime < total_time) {
                         maxTime = total_time;
                         
-                        const send_back = new Paho.MQTT.Message(total_time);
-                        send_back.destinationName(`d|${total_time}`);
+                        const send_back = new Paho.MQTT.Message(`d|n|${total_time}`);
+                        send_back.destinationName = "focus/activate";
                         client.send(send_back);
                     }
 

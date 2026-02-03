@@ -95,8 +95,7 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
     const { start } = await chrome.storage.local.get("start");
     const { focusSource } = await chrome.storage.local.get("focusSource");
 
-
-    if (newFocus) {
+    if (newFocus && !abs.absoluteFocusmode) {
 
         if (start === 0) {
             await chrome.storage.local.set({ start: Date.now() });
