@@ -54,7 +54,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
 
   // Read SYSTEM TRUTH
-  chrome.storage.local.get(["absoluteFocusmode", "isLogged", "username"], (data) => {
+  chrome.storage.local.get(["absoluteFocusmode", "isLogged", "username", "naturalCompletion"], (data) => {
     const active = data.absoluteFocusmode ?? false;
     focusMode = active;
     btn.classList.toggle("active", active);
@@ -71,6 +71,13 @@ document.addEventListener("DOMContentLoaded", async () => {
       userBtn.classList.add("active");
     } else {
       userBtn.classList.remove("active");
+    }
+
+    // Check for pending celebration when popup opens
+    if (data.naturalCompletion) {
+      console.log("Popup opened with pending celebration!");
+      celebrateSession();
+      chrome.storage.local.set({ naturalCompletion: false });
     }
   });
 
@@ -103,10 +110,12 @@ document.addEventListener("DOMContentLoaded", async () => {
       // Immediately update progress bar with new session time
       updateTimer();
     }
-    if (changes.sessionCompleteIndicator) {
-      // Only celebrate if this was a natural completion (timer-based), not early deactivation
-      const { naturalCompletion } = await chrome.storage.local.get("naturalCompletion");
-      if (naturalCompletion) {
+    
+    // Celebrate when naturalCompletion flag is set to true
+    if (changes.naturalCompletion) {
+      console.log("naturalCompletion changed to:", changes.naturalCompletion.newValue);
+      if (changes.naturalCompletion.newValue === true) {
+        console.log("Triggering celebration!");
         celebrateSession();
         // Reset the flag after celebration
         await chrome.storage.local.set({ naturalCompletion: false });
@@ -122,10 +131,19 @@ document.addEventListener("DOMContentLoaded", async () => {
       const circle = document.getElementById("progressCircle");
       if (circle) {
         circle.classList.toggle("active", focusMode);
+        
+        // Reset progress bar when focus ends
+        if (!focusMode) {
+          circle.style.strokeDashoffset = 534.07; // Reset to 0%
+        }
       }
 
-      if (!focusMode) {
+      if (focusMode) {
+        await chrome.storage.local.set({ start: Date.now() });
+      } else {
         displayImage(false);
+        await chrome.storage.local.set({ start: 0 });
+
       }
     }
 
@@ -240,39 +258,53 @@ document.addEventListener("DOMContentLoaded", async () => {
 
 // -------------------- Timer (UI only) --------------------
 async function updateTimer() {
-  const { absoluteFocusmode, total_time = 0, start = 0 } =
+  const { absoluteFocusmode, sessionCount, sessionTime, start } =
     await chrome.storage.local.get([
       "absoluteFocusmode",
-      "total_time",
+      "sessionCount",
+      "sessionTime",
       "start"
     ]);
 
-  // Current session time
-  let sessionSecs = 0;
-  if (absoluteFocusmode && start) {
-    sessionSecs = Math.floor((Date.now() - start) / 1000);
+  // Calculate total time from completed sessions
+  let totalSecs = sessionCount * sessionTime * 60;
+  let currentSessionSecs = 0;
+
+  if (absoluteFocusmode) {
+    // Current session progress
+    currentSessionSecs = Math.floor((Date.now() - start) / 1000);
+    totalSecs += currentSessionSecs;
+    
+    // Progress bar shows ONLY current session progress
+    await renderTime(currentSessionSecs);
+  } else {
+    // When not focusing, ensure circle is reset to 0%
+    const circle = document.getElementById("progressCircle");
+    if (circle) {
+      circle.style.strokeDashoffset = 534.07;
+    }
   }
 
-  await renderTime(sessionSecs);
-  renderTotalTime(total_time + sessionSecs);
+  // Always display total time (whether focusing or not)
+  renderTotalTime(totalSecs);
 }
 
 // ++++++++++++++++++++++++++++++++++++++++++++++
 // This part has the circular progress bar as well
 // ++++++++++++++++++++++++++++++++++++++++++++++
-async function renderTime(secs) {
-  const hours = Math.floor(secs / 3600);
-  const minutes = Math.floor((secs % 3600) / 60);
-  const seconds = secs % 60;
+async function renderTime(currentSessionSecs) {
+  const hours = Math.floor(currentSessionSecs / 3600);
+  const minutes = Math.floor((currentSessionSecs % 3600) / 60);
+  const seconds = currentSessionSecs % 60;
 
   document.getElementById("timer").textContent =
     `${String(hours).padStart(2, "0")}h : ` +
     `${String(minutes).padStart(2, "0")}min`;
 
-  // Update circular progress bar based on current session time
+  // Update circular progress bar based on CURRENT session only
   const { sessionTime } = await chrome.storage.local.get("sessionTime");
   const maxTime = sessionTime * 60; // sessionTime is in minutes, convert to seconds
-  const progress = Math.min(secs / maxTime, 1); // Cap at 100%
+  const progress = Math.min(currentSessionSecs / maxTime, 1); // Cap at 100%
   const circumference = 534.07;
   const offset = circumference * (1 - progress);
 
@@ -284,12 +316,11 @@ async function renderTime(secs) {
 
 
 updateTimer();
-setInterval(updateTimer, 1000);
+setInterval(updateTimer, 1000); // Runs every second
 
 function renderTotalTime(secs) {
   const hours = Math.floor(secs / 3600);
   const minutes = Math.floor((secs % 3600) / 60);
-  const seconds = secs % 60;
 
   const el = document.getElementById("totalTime");
   if (el) {

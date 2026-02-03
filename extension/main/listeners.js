@@ -8,6 +8,7 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
 
     if (changes.isLogged) {
         if (changes.isLogged.newValue) {
+            chrome.storage.local.set({ date: new Date() });
             initializeMQTT();
             chrome.alarms.create("mqttPing", { periodInMinutes: 0.5 });
 
@@ -94,6 +95,7 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
     const newFocus = changes.focusMode.newValue;
     const { start } = await chrome.storage.local.get("start");
     const { focusSource } = await chrome.storage.local.get("focusSource");
+    const { sessionCount } = await chrome.storage.local.get("sessionCount");
 
     if (newFocus && !abs.absoluteFocusmode) {
 
@@ -108,7 +110,7 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
 
 
         if (client && client.isConnected() && focusSource === "local") {
-            const msg = new Paho.MQTT.Message("activate");
+            const msg = new Paho.MQTT.Message(`a|${sessionCount}`);
             msg.destinationName = "focus/activate";
             msg.retained = true;   // ⭐ REQUIRED
             client.send(msg);
@@ -137,7 +139,7 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
         await chrome.storage.local.set({ absoluteFocusmode: false });
         await chrome.storage.local.set({ focusMode: false });
 
-        await elapsedSeconds();
+        // await elapsedSeconds();
 
         // console.log("Focus mode OFF");
 
@@ -152,7 +154,7 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
                 // If this was already received no need to publish it again
                 if (focusSource === "mqtt") return;
 
-                const msg = new Paho.MQTT.Message("d|c");
+                const msg = new Paho.MQTT.Message(`d|c|${sessionCount}`);
                 msg.destinationName = "focus/activate";
                 msg.retained = true;   // ⭐ REQUIRED
                 client.send(msg);
@@ -160,18 +162,16 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
                 // If this was already received no need to publish it again
                 if (focusSource === "mqtt") return;
 
-                chrome.storage.local.get(["total_time"], (data) => {
-                    const totalTime = data.total_time ?? 0;
-                    // Flag to deactivate `d` and total focus time is being sent. 
-                    // Client id is not used
-                    const payload = `d|n|${totalTime}`;
+                // chrome.storage.local.get(["total_time"], (data) => {
+                //     const totalTime = data.total_time ?? 0;
+                //     // Flag to deactivate `d` and total focus time is being sent. 
+                //     // Client id is not used
+                // });
 
-                    const msg = new Paho.MQTT.Message(payload);
-                    msg.destinationName = "focus/activate";
-                    msg.retained = true;   // ⭐ REQUIRED
-                    client.send(msg);
-                });
-
+                const msg = new Paho.MQTT.Message(`d|n|${sessionCount}`);
+                msg.destinationName = "focus/activate";
+                msg.retained = true;   // ⭐ REQUIRED
+                client.send(msg);
             }
         }
     }

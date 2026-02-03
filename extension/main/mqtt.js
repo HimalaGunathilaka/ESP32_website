@@ -1,8 +1,3 @@
-
-// ======================================================
-// ======================================================
-// MQTT
-// ======================================================
 // ======================================================
 let client = null;
 let pendingBlockList = []; // Accumulator for incoming block list from server
@@ -10,6 +5,7 @@ let sessionSrc = false;
 
 async function initializeMQTT() {
     const { isLogged } = await chrome.storage.local.get("isLogged");
+    // const { sessionTime } = await chrome.storage.local.get("sessionTime");
     await chrome.storage.local.set({ deviceConnected: false });
 
     if (!isLogged) return;
@@ -27,50 +23,66 @@ async function initializeMQTT() {
         switch (topic) {
             case "focus/activate":
                 const { isSource } = await chrome.storage.local.get("source");
+                const { sessionCount } = await chrome.storage.local.get("sessionCount");
+                let count_recived = 0;
+
+                let send_back = null;
 
                 // If this is the source of activation. 
                 // No point of listening to the signal they sent.
 
                 if (isSource) { return; }
 
-                if (payload === "activate") {
+                // if (payload === "activate") {
+                // }
+                // else if (payload === "deactivate") {
+                //     await chrome.storage.local.set({ focusSource: "mqtt" });
+                //     await chrome.storage.local.set({ focusMode: false });
+                // }
+
+                if (payload.startsWith("a|")) {
+                    count_recived = parseInt(payload.split("|")[1]);
                     await chrome.storage.local.set({ focusSource: "mqtt" });
                     await chrome.storage.local.set({ focusMode: true });
-                }
-                else if (payload === "deactivate") {
-                    await chrome.storage.local.set({ focusSource: "mqtt" });
-                    await chrome.storage.local.set({ focusMode: false });
+
+                    if (count_recived < sessionCount) {
+                        // Our count is higher, send it back
+                        send_back = new Paho.MQTT.Message(`a|${sessionCount}`);
+                    } else if (count_recived > sessionCount) {
+                        // Their count is higher, update ours
+                        await chrome.storage.local.set({ sessionCount: count_recived });
+                    }
+                    // If equal, do nothing
                 }
                 else if (payload.startsWith("d|")) {
+                    count_recived = parseInt(payload.split("|")[2]);
+
                     await chrome.storage.local.set({ focusSource: "mqtt" });
-                    // Handle deactivation with time data
                     await chrome.storage.local.set({ focusMode: false });
-                    const { total_time } = await chrome.storage.local.get("total_time");
 
-                    console.log(`Inside 1: ${payload}`);
-                    if (payload == "d|c") {
-                        sessionSrc = false;
-
-                        const roundTime = Math.ceil(total_time / 25) * 25;
-                        await chrome.storage.local.set({ total_time: roundTime });
+                    if (payload.startsWith("d|n")) {
+                        if (count_recived < sessionCount) {
+                            send_back = new Paho.MQTT.Message(`d|n|${sessionCount}`);
+                        } else if (count_recived > sessionCount) {
+                            await chrome.storage.local.set({ sessionCount: count_recived });
+                        }
                         return;
+                    } else if (payload.startsWith("d|c")) {
+                        sessionSrc = false;
+                        if (count_recived < sessionCount) {
+                            send_back = new Paho.MQTT.Message(`d|c|${sessionCount}`);
+                        } else if (count_recived > sessionCount) {
+                            await chrome.storage.local.set({ sessionCount: count_recived });
+                        }
                     }
-                    let maxTime = parseInt(payload.split("|")[2], 10);
-                    if (maxTime < total_time) {
-                        maxTime = total_time;
-                        
-                        const send_back = new Paho.MQTT.Message(`d|n|${total_time}`);
-                        send_back.destinationName = "focus/activate";
-                        client.send(send_back);
-                    }
-
-                    // const maxTime = Math.max(timeValue, total_time || 0);
-
-                    await chrome.storage.local.set({ total_time: maxTime });
-                    // const { total_time: tt } = await chrome.storage.local.get("total_time");
-                    // console.log(`Inside 2: ${tt}`);
 
 
+                }
+
+                if (send_back) {
+                    send_back.destinationName = "focus/activate";
+                    send_back.retained = true;
+                    client.send(send_back);
                 }
                 break;
             case "focus/block/extension": {

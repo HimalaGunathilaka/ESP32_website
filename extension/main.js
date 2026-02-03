@@ -37,43 +37,42 @@ const COOLOFF_TIME = 5000;
 // ======================================================
 
 // -------------------- Time tracking --------------------
-async function elapsedSeconds() {
-    const end = Date.now();
-    const today = new Date();
-    const { date } = await chrome.storage.local.get("date");
+// async function elapsedSeconds() {
+//     const end = Date.now();
+//     const today = new Date();
+//     const { date } = await chrome.storage.local.get("date");
 
-    const { start = 0, total_time = 0 } =
-        await chrome.storage.local.get(["start", "total_time"]);
+//     const { start = 0, total_time = 0 } =
+//         await chrome.storage.local.get(["start", "total_time"]);
 
-    if (date && new Date(date).toDateString() !== today.toDateString()) {
-        sendTo_server("POST", "/time/total", total_time);
+//     if (date && new Date(date).toDateString() !== today.toDateString()) {
+//         sendTo_server("POST", "/time/total", total_time);
 
-        await chrome.storage.local.set({
-            start: 0,
-            total_time: 0
-        });
-        return;
-    }
+//         await chrome.storage.local.set({
+//             start: 0,
+//             total_time: 0
+//         });
+//         return;
+//     }
 
 
 
-    // This condition is set for whenever start was not captured 
-    // which implies do not calculate elapsed time for that instance.
-    if (start === 0) return;
+//     // This condition is set for whenever start was not captured 
+//     // which implies do not calculate elapsed time for that instance.
+//     if (start === 0) return;
 
-    const elapsed = Math.floor((end - start) / 1000);
-    await chrome.storage.local.set({
-        total_time: total_time + elapsed,
-        start: 0
-    });
-}
+//     const elapsed = Math.floor((end - start) / 1000);
+//     await chrome.storage.local.set({
+//         total_time: total_time + elapsed,
+//         start: 0
+//     });
+// }
 
 // --------------Reset total time after t time---------------
 // --------------To depict the end of the day----------------
-async function resetTotal_time() {
-    chrome.storage.local.set({ total_time: 0 });
-}
-
+// async function resetTotal_time() {
+//     chrome.storage.local.set({ total_time: 0 });
+// }
 
 initializeMQTT();
 
@@ -87,6 +86,16 @@ chrome.alarms.onAlarm.addListener(async (alaram) => {
         if (!client || !client.isConnected()) initializeMQTT();
     }
     else if (alaram.name === "focusSessionEnd") {
+        const { sessionCount } = await chrome.storage.local.get("sessionCount");
+        const { date } = await chrome.storage.local.get("date");
+        const today = new Date();
+        
+        if (date && new Date(date).toDateString() !== today.toDateString()) {
+            await chrome.storage.local.set({ sessionCount: 0 });
+            await chrome.storage.local.set({ date: today });
+        }
+        
+        await chrome.storage.local.set({ sessionCount: sessionCount + 1 });
         await achieveSession();
     }
 });
