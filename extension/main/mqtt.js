@@ -4,13 +4,14 @@ let pendingBlockList = []; // Accumulator for incoming block list from server
 let sessionSrc = false;
 
 async function initializeMQTT() {
-    const { isLogged } = await chrome.storage.local.get("isLogged");
-    // const { sessionTime } = await chrome.storage.local.get("sessionTime");
-    await chrome.storage.local.set({ deviceConnected: false });
+    try {
+        const { isLogged } = await chrome.storage.local.get("isLogged");
+        // const { sessionTime } = await chrome.storage.local.get("sessionTime");
+        await chrome.storage.local.set({ deviceConnected: false });
 
-    if (!isLogged) return;
+        if (!isLogged) return;
 
-    client = new Paho.MQTT.Client("localhost", 9001, "worker-" + crypto.randomUUID());
+        client = new Paho.MQTT.Client("localhost", 9001, "worker-" + crypto.randomUUID());
 
     chrome.alarms.onAlarm.addListener(() => {
         if (!client || !client.isConnected());
@@ -128,11 +129,11 @@ async function initializeMQTT() {
         console.log(payload);
     };
 
-    client.connect({
-        userName: "himala",
-        password: "123",
-        keepAliveInterval: 60, // in seconds
-        onSuccess: async () => {
+        client.connect({
+            userName: "himala",
+            password: "123",
+            keepAliveInterval: 60, // in seconds
+            onSuccess: async () => {
             try {
                 if (!client || !client.isConnected()) {
                     console.warn("Client not connected in onSuccess, retrying...");
@@ -175,7 +176,14 @@ async function initializeMQTT() {
                 setTimeout(initializeMQTT, 2000);
             }
 
-        },
-        onFailure: () => setTimeout(initializeMQTT, 2000),
-    });
+            },
+            onFailure: (err) => {
+                console.warn("MQTT connection failed (will retry):", err);
+                setTimeout(initializeMQTT, 2000);
+            },
+        });
+    } catch (err) {
+        console.error("MQTT initialization error (non-blocking):", err);
+        // Don't retry on initialization errors, only on connection failures
+    }
 }

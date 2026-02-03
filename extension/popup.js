@@ -110,7 +110,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       // Immediately update progress bar with new session time
       updateTimer();
     }
-    
+
     // Celebrate when naturalCompletion flag is set to true
     if (changes.naturalCompletion) {
       console.log("naturalCompletion changed to:", changes.naturalCompletion.newValue);
@@ -131,7 +131,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       const circle = document.getElementById("progressCircle");
       if (circle) {
         circle.classList.toggle("active", focusMode);
-        
+
         // Reset progress bar when focus ends
         if (!focusMode) {
           circle.style.strokeDashoffset = 534.07; // Reset to 0%
@@ -274,7 +274,7 @@ async function updateTimer() {
     // Current session progress
     currentSessionSecs = Math.floor((Date.now() - start) / 1000);
     totalSecs += currentSessionSecs;
-    
+
     // Progress bar shows ONLY current session progress
     await renderTime(currentSessionSecs);
   } else {
@@ -372,6 +372,9 @@ function renderBlockedIcons(blocked, container) {
       const { block = [] } = await chrome.storage.local.get("block");
 
       const index = block.indexOf(site);
+
+      sendTo_server("POST", "/url/remove", { url: site });
+
 
       if (index !== -1) {
         block.splice(index, 1); // Remove from array

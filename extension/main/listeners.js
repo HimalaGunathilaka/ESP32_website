@@ -89,7 +89,6 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
         }
     }
 
-
     if (!changes.focusMode) return;
 
     const newFocus = changes.focusMode.newValue;
