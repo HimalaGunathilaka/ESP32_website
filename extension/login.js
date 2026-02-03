@@ -23,27 +23,41 @@ document.addEventListener("DOMContentLoaded", () => {
             showMessage("Please fill in all login fields", "error");
             return;
         }
-        const res = await fetch("http://localhost:8080/login", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ username, password })
-        });
 
-        const data = await res.json();
+        try {
+            const res = await fetch("http://localhost:8080/login", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ username, password })
+            });
+            const data = await res.json();
 
-        if (!res.ok) {
-            showMessage(data.message || "Login failed", "error");
-            return; // Add return here to prevent showing success message
+            if (!res.ok) {
+                showMessage(data.message || "Login failed", "error");
+                return; // Add return here to prevent showing success message
+            }
+            showMessage("Login successful");
+
+
+            await chrome.storage.local.set({
+                username,
+                token: data.accessToken,
+                isLogged: true
+            });
+
+            setTimeout(() => {
+                chrome.tabs.getCurrent((tab) => {
+                    if (tab?.id) {
+                        chrome.tabs.remove(tab.id);
+                    }
+                });
+            }, 1000);
+
+            console.log("Complete");
+        } catch (err) {
+            showMessage("Server is not running", "error");
+            return
         }
-
-        localStorage.setItem("token", data.accessToken);
-        showMessage("Login successful");
-
-        
-        await chrome.storage.local.set({ username: username });
-        await chrome.storage.local.set({ isLogged: true });
-        console.log("Complete");
-
     });
 
     // Register logic
@@ -64,21 +78,43 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
-        const res = await fetch("http://localhost:8080/add-user", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ username, password, email })
-        });
-        const data = await res.json();
+        try {
+            const res = await fetch("http://localhost:8080/add-user", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ username, password, email })
+            });
+            const data = await res.json();
 
-        if (!res.ok) {
-            showMessage(data.message || "Registration failed", "error");
-            return;
+            if (!res.ok) {
+                showMessage(data.message || "Registration failed", "error");
+                return;
+            }
+
+            showMessage("Registration successful. Please log in.");
+
+
+        } catch (err) {
+            showMessage("Server is not running", "error");
         }
-
-        showMessage("Registration successful. Please log in.");
     });
 });
+
+document.addEventListener("DOMContentLoaded", async () => {
+
+    const { isLogged, token } = await chrome.storage.local.get([
+        "isLogged",
+        "token"
+    ]);
+
+    if (isLogged && token) {
+        // user is already logged in
+        connectWebsocket(token);
+    }
+
+    // ALWAYS attach listeners
+});
+
 
 
 const message = document.getElementById("message");

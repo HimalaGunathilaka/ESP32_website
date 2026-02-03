@@ -1,5 +1,5 @@
 body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-family: 'Inter', system-ui, sans-serif;
     padding: 16px;
     margin: 0;
     min-width: 200px;
@@ -10,13 +10,13 @@ body {
     box-sizing: border-box;
     /* ensures padding included in width */
 
-    background: linear-gradient(180deg,
+    /* background: linear-gradient(180deg,
             rgb(99, 216, 206) 0%,
-            rgb(255, 255, 255) 100%);
+            rgb(255, 255, 255) 100%); */
 
     background-size: 100% 120px;
     background-repeat: no-repeat;
-    background-color: white;
+    /* background-color: linear-gradient(135deg, #0d6b31 0%, #3c9158 100%); */
 }
 
 
@@ -114,7 +114,7 @@ body {
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    font-size: 1.8em;
+    font-size: 1.5em;
     font-weight: 600;
     color: #333;
     margin: 0;
@@ -235,24 +235,88 @@ body {
     right: 8px;
     z-index: 10000;
 
+    background: linear-gradient(135deg, #690229, #af7200);
+    color: #fff;
+
     padding: 6px 12px;
     font-size: 12px;
+    font-weight: 500;
+
     border-radius: 6px;
     border: none;
     cursor: pointer;
+
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+    transition:
+        background 0.2s ease,
+        transform 0.15s ease,
+        box-shadow 0.15s ease;
 }
 
-.top-left-btn{
+.top-right-btn:hover {
+    transform: scale(1.08);
+    background: linear-gradient(135deg, #d89200, #690229);
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
+}
+
+.top-right-btn:active {
+    transform: scale(1.02) translateY(1px);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+
+.top-right-btn:focus-visible {
+    outline: 2px solid rgba(255, 200, 80, 0.8);
+    outline-offset: 2px;
+}
+
+.top-left-btn {
     position: fixed;
     top: 8px;
     left: 8px;
     z-index: 10000;
 
+    background: linear-gradient(135deg, #690229, #af7200);
+    color: #fff;
+
     padding: 6px 12px;
     font-size: 12px;
+    font-weight: 500;
+
     border-radius: 6px;
     border: none;
     cursor: pointer;
+
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+    transition:
+        background 0.2s ease,
+        transform 0.15s ease,
+        box-shadow 0.15s ease;
+}
+
+.top-left-btn:hover {
+    transform: scale(1.08);
+    /* slightly less aggressive than 1.1 */
+    background: linear-gradient(135deg, #d89200, #690229);
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
+}
+
+.top-left-btn:active {
+    transform: scale(1.02) translateY(1px);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+
+.top-left-btn:focus-visible {
+    outline: 2px solid rgba(255, 200, 80, 0.8);
+    outline-offset: 2px;
+}
+
+.top-left-btn.active {
+    background: linear-gradient(135deg, #005500, #54fa12);
+    box-shadow: 0 0 0 2px rgba(25, 135, 84, 0.4);
+}
+
+.top-left-btn.active:hover {
+    background: linear-gradient(135deg, #54fa12, #005500);
 }
 
 .view {
@@ -261,4 +325,59 @@ body {
 
 .view-active {
     display: block;
+}
+
+.esp-btn {
+    visibility: hidden;
+    width: 100%;
+    max-width: 120px;
+    margin: 0 auto;
+    display: block;
+
+    padding: 6px 10px;
+    font-size: 12px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    background-color: #ff7777;
+    color: #333;
+    transition: background-color 0.3s ease;
+}
+
+.esp-btn:hover {
+    background-color: #e0e0e0;
+}
+
+.esp-btn.connected {
+    background-color: #4CAF50;
+    color: white;
+}
+
+.esp-btn.disconnected {
+    background-color: #f44336;
+    color: white;
+}
+
+/* Active / operating state */
+.esp-btn.active {
+    background-color: #6dff2a;
+    /* bright blue */
+    color: white;
+    box-shadow: 0 0 8px rgba(33, 150, 243, 0.7);
+    animation: pulse 1.5s infinite;
+}
+
+/* Optional pulse animation */
+@keyframes pulse {
+    0% {
+        box-shadow: 0 0 8px rgba(33, 150, 243, 0.7);
+    }
+
+    50% {
+        box-shadow: 0 0 16px rgba(33, 150, 243, 0.9);
+    }
+
+    100% {
+        box-shadow: 0 0 8px rgba(33, 150, 243, 0.7);
+    }
 }

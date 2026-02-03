@@ -5,6 +5,11 @@
 #include "led.h"
 #include "display.h"
 
+#include <ESPmDNS.h>
+#include <WebServer.h>
+
+WebServer server(80);
+
 #define BUZZER_PIN 23
 
 #define BUZZER_CHANNEL 0
@@ -46,6 +51,27 @@ void setup()
 
   wm.autoConnect("ESP32-WiFi", "password");
 
+  if (!MDNS.begin("esp32"))
+  {
+    Serial.println("Error setting up mDNS responder!");
+    while (1)
+    {
+      delay(1000);
+    }
+  }
+
+  Serial.println("mDNS responder started");
+
+  server.on("/device-info", HTTP_GET, []()
+            {
+        uint64_t id = ESP.getEfuseMac();
+        char buf[20];
+        sprintf(buf, "%04X%08X", (uint16_t)(id >> 32), (uint32_t)id);
+        server.send(200, "application/json", String("{\"device_id\":\"") + buf + "\"}"); });
+
+  server.begin();
+  Serial.println("HTTP server started");
+
   displayInit();
   setDisplayNumber(0);
   initLED();
@@ -59,6 +85,8 @@ void loop()
     return;
     // If goes to return below will not be achieved.
   }
+
+  server.handleClient();
 
   tryReconnecting_MQTT();
 

@@ -1,11 +1,13 @@
 let focusMode = false;
 
+const SERVER_BASE = "http://localhost:8080";
+
 // -------------------- Toggle focus --------------------
 async function focus() {
   // Always read current storage value to avoid sync issues
   const { focusMode: current } = await chrome.storage.local.get("focusMode");
-  console.log("Current focusMode:", current, "-> Setting to:", !current);
-  chrome.storage.local.set({ focusMode: !current });
+  // console.log("Current focusMode:", current, "-> Setting to:", !current);
+  await chrome.storage.local.set({ focusMode: !current });
 }
 
 // Display image only when try to deactivate focus while in cool off
@@ -30,11 +32,26 @@ const btn = document.getElementById("focusBtn");
 const iconContainer = document.getElementById("iconList");
 const tooltip = document.getElementById("addTooltip");
 const userBtn = document.getElementById("topLeftBtn");
+const espBtn = document.getElementById("espBtn");
 
 
 // -------------------- Init popup --------------------
 document.addEventListener("DOMContentLoaded", async () => {
   const hostname = await getActiveHostname();
+  const { deviceConnected } = await chrome.storage.local.get("deviceConnected");
+  const { isLogged } = await chrome.storage.local.get("isLogged");
+
+  if (isLogged) {
+    espBtn.style.visibility = "visible";
+  } else {
+    espBtn.style.visibility = "hidden";
+
+  }
+
+  espBtn.textContent = deviceConnected ? "Connected" : "Disconnected"
+
+  if (deviceConnected) { espBtn.classList.add("active"); } else { espBtn.classList.remove("active"); }
+
 
   // Read SYSTEM TRUTH
   chrome.storage.local.get(["absoluteFocusmode", "isLogged", "username"], (data) => {
@@ -51,12 +68,26 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Check if user is already logged in
     if (data.isLogged && data.username) {
       userBtn.textContent = data.username;
+      userBtn.classList.add("active");
+    } else {
+      userBtn.classList.remove("active");
     }
   });
 
   // React to changes (popup stays in sync)
   chrome.storage.onChanged.addListener(async (changes, area) => {
     if (area !== "local") return;
+
+    if (changes.deviceConnected) {
+      if (!changes.deviceConnected.newValue) {
+        espBtn.classList.remove("active");
+        espBtn.textContent = "Disconnected";
+      } else {
+        espBtn.classList.add("active");
+        espBtn.textContent = "Connected";
+      }
+    }
+
 
     if (changes.isLogged) {
       if (changes.isLogged.newValue) {
@@ -67,8 +98,19 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       }
     }
+
+    if (changes.sessionTime) {
+      // Immediately update progress bar with new session time
+      updateTimer();
+    }
     if (changes.sessionCompleteIndicator) {
-      celebrateSession();
+      // Only celebrate if this was a natural completion (timer-based), not early deactivation
+      const { naturalCompletion } = await chrome.storage.local.get("naturalCompletion");
+      if (naturalCompletion) {
+        celebrateSession();
+        // Reset the flag after celebration
+        await chrome.storage.local.set({ naturalCompletion: false });
+      }
     }
 
     // Handle absoluteFocusmode changes
@@ -97,8 +139,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
-  btn.addEventListener("click", () => {
+  btn.addEventListener("click", async () => {
     focus(); // request change only
+    await chrome.storage.local.set({ focusSource: "local" });
   });
 
 
@@ -135,6 +178,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       if (!blocked.includes(hostname)) {
         blocked.push(hostname);
+
+        // Send link to server
+        sendTo_server("POST", "/url/add", { url: hostname });
+
         chrome.storage.local.set({ block: blocked }, () => {
           // Tooltip
           clear_tooltipTimers();
@@ -149,6 +196,11 @@ document.addEventListener("DOMContentLoaded", async () => {
       } else {
         const index = blocked.indexOf(hostname);
         blocked.splice(index, 1);
+
+        // Send link to be removed to server
+        sendTo_server("POST", "/url/remove", { url: hostname });
+
+
         chrome.storage.local.set({ block: blocked }, () => {
           // console.log("Removed from block list:", blocked);
           // Tooltip
@@ -170,8 +222,21 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   userBtn.addEventListener("click", async () => {
     chrome.tabs.create({ url: chrome.runtime.getURL("login.html") });
-  })
-})
+  });
+
+  espBtn.addEventListener("click", async () => {
+    const deviceId = await fetchDeviceId();
+    if (!deviceId) return;
+
+    await chrome.storage.local.set({ deviceId });
+    await chrome.storage.local.set({ deviceConnected: true });
+
+    await sendTo_server("POST", "/device/put", { deviceId });
+    espBtn.textContent = "Connected";
+    espBtn.classList.add("active");
+  });
+
+});
 
 // -------------------- Timer (UI only) --------------------
 async function updateTimer() {
@@ -201,12 +266,12 @@ async function renderTime(secs) {
   const seconds = secs % 60;
 
   document.getElementById("timer").textContent =
-    `${String(hours).padStart(2, "0")}:` +
-    `${String(minutes).padStart(2, "0")}`;
+    `${String(hours).padStart(2, "0")}h : ` +
+    `${String(minutes).padStart(2, "0")}min`;
 
-  // Update circular progress bar (max 8 hours)
+  // Update circular progress bar based on current session time
   const { sessionTime } = await chrome.storage.local.get("sessionTime");
-  const maxTime = sessionTime * 60; // 25 minutes in seconds
+  const maxTime = sessionTime * 60; // sessionTime is in minutes, convert to seconds
   const progress = Math.min(secs / maxTime, 1); // Cap at 100%
   const circumference = 534.07;
   const offset = circumference * (1 - progress);
@@ -228,7 +293,7 @@ function renderTotalTime(secs) {
 
   const el = document.getElementById("totalTime");
   if (el) {
-    el.textContent = `Total: ${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+    el.textContent = `Total: ${String(hours).padStart(2, "0")}h : ${String(minutes).padStart(2, "0")}min`;
   }
 }
 
@@ -362,7 +427,7 @@ topRightBtn.addEventListener("click", () => {
   if (showingMainView) {
     mainView.classList.remove("view-active");
     urlView.classList.add("view-active");
-    topRightBtn.textContent = "Back"; // optional
+    topRightBtn.textContent = "Blocked List"; // optional
   } else {
     urlView.classList.remove("view-active");
     mainView.classList.add("view-active");
@@ -385,4 +450,73 @@ function clear_tooltipTimers() {
   clearTimeout(tooltipTimer_show);
   // Also remove all tooltip classes to prevent color conflicts
   tooltip.classList.remove("show", "add", "remove");
+}
+
+
+
+// =====================================
+// Server connection logic stuff
+// =====================================
+
+async function sendTo_server(method, endpoint, payload) {
+  try {
+    const { token, isLogged } = await chrome.storage.local.get([
+      "token",
+      "isLogged"
+    ]);
+
+    if (!isLogged || !token) {
+      console.warn("Not logged in – skipping server sync");
+      return null;
+    }
+
+    const res = await fetch(`${SERVER_BASE}${endpoint}`, {
+      method: method,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`
+      },
+      body: method !== "GET" ? JSON.stringify(
+        typeof payload === "string"
+          ? { value: payload }
+          : payload
+      ) : undefined
+    });
+
+    if (res.status === 401) {
+      console.warn("JWT expired or invalid");
+      await chrome.storage.local.set({ isLogged: false });
+      return null;
+    }
+
+    if (!res.ok) {
+      console.error("Server error:", await res.text());
+      return null;
+    }
+
+    // Capture response form GET requests
+    if (method === "GET") {
+      const data = await res.json();
+      return data;
+    }
+
+    return true;
+  } catch (err) {
+    console.error("sendTo_server failed:", err);
+    return null;
+  }
+}
+
+
+
+async function fetchDeviceId() {
+  try {
+    const resp = await fetch("http://esp32.local/device-info");
+    const data = await resp.json();
+    console.log("Device ID:", data.device_id);
+    return data.device_id;
+  } catch (err) {
+    console.error("Could not reach ESP32:", err);
+    return null;
+  }
 }

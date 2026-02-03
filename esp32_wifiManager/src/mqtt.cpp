@@ -14,6 +14,8 @@ bool sessionComplete = false;
 unsigned long lastMQTTAttempt = 0;
 const unsigned long mqttRetryInterval = 5000;
 
+bool statusSent = false;
+
 // ---------------------------------------------
 // MQTT
 // ---------------------------------------------
@@ -57,9 +59,18 @@ void attemptMQTT()
   client.setServer(mqttBroker.c_str(), mqttPort);
   client.setCallback(callback);
 
+  // ------------------------
+  // Connect with Last Will & Testament
+  // ------------------------
+  // Parameters: clientId, username, password, willTopic, willQos, willRetain, willMessage
   if (client.connect("ESP32Client",
                      mqttUsername.c_str(),
-                     mqttPassword.c_str()))
+                     mqttPassword.c_str(),
+                     "esp/status",
+                     1,
+                     true,
+                     "offline",
+                     false))
   {
     Serial.println("connected");
     client.subscribe("focus/activate");
@@ -79,6 +90,7 @@ void tryReconnecting_MQTT()
   if (!client.connected() && count == 1)
   {
     unsigned long now = millis();
+    statusSent = false;
 
     if (now - lastMQTTAttempt > mqttRetryInterval)
     {
@@ -86,6 +98,11 @@ void tryReconnecting_MQTT()
       digitalWrite(ONBOARD_LED, LOW);
       attemptMQTT();
     }
+  }
+  else if (!statusSent)
+  {
+    client.publish("esp/status", "online");
+    statusSent = true;
   }
 }
 
