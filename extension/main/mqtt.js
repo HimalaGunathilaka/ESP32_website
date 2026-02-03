@@ -50,19 +50,28 @@ async function initializeMQTT() {
                     console.log(`Inside 1: ${payload}`);
                     if (payload == "d|c") {
                         sessionSrc = false;
-                        
+
                         const roundTime = Math.ceil(total_time / 25) * 25;
                         await chrome.storage.local.set({ total_time: roundTime });
                         return;
                     }
-                    const timeValue = parseInt(payload.split("|")[2], 10);
-                    const maxTime = Math.max(timeValue, total_time || 0);
+                    let maxTime = parseInt(payload.split("|")[2], 10);
+                    if (maxTime < total_time) {
+                        maxTime = total_time;
+                        
+                        const send_back = new Paho.MQTT.Message(total_time);
+                        send_back.destinationName(`d|${total_time}`);
+                        client.send(send_back);
+                    }
+
+                    // const maxTime = Math.max(timeValue, total_time || 0);
+
                     await chrome.storage.local.set({ total_time: maxTime });
-                    const { total_time: tt } = await chrome.storage.local.get("total_time");
-                    console.log(`Inside 2: ${tt}`);
+                    // const { total_time: tt } = await chrome.storage.local.get("total_time");
+                    // console.log(`Inside 2: ${tt}`);
 
 
-                } 
+                }
                 break;
             case "focus/block/extension": {
                 const { urlMutex } = await chrome.storage.local.get("urlMutex");

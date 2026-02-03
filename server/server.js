@@ -189,7 +189,7 @@ app.post('/login', async (req, res) => {
         const accessToken = jwt.sign(
             payload,
             process.env.TOKEN_SECRET,
-            { expiresIn: "1m" }
+            { expiresIn: "5m" }
         );
 
         res.json({ accessToken });
