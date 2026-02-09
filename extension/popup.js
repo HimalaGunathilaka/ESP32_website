@@ -544,8 +544,17 @@ async function sendTo_server(method, endpoint, payload) {
 
 
 async function fetchDeviceId() {
+  const { username } = await chrome.storage.local.get("username");
   try {
-    const resp = await fetch("http://esp32.local/device-info");
+    const resp = await fetch("http://esp32.local/device-info", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        username: username
+      })
+    });
     const data = await resp.json();
     console.log("Device ID:", data.device_id);
     return data.device_id;

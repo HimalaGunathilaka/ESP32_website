@@ -43,14 +43,17 @@ chrome.alarms.onAlarm.addListener(async (alaram) => {
         const { sessionCount } = await chrome.storage.local.get("sessionCount");
         const { date } = await chrome.storage.local.get("date");
         const today = new Date();
-        
+
         if (date && new Date(date).toDateString() !== today.toDateString()) {
             await chrome.storage.local.set({ sessionCount: 0 });
             await chrome.storage.local.set({ date: today });
         }
-        
+
         await chrome.storage.local.set({ sessionCount: sessionCount + 1 });
         await achieveSession();
+        const sendToServer = sessionCount + 1;
+        await sendTo_server("POST", "/session/complete", { sessionCount: sendToServer });
+
     }
 });
 
@@ -87,11 +90,6 @@ async function achieveSession() {
             console.warn("MQTT initialization failed (non-critical):", err);
         }
         console.log("Token is valid");
-
-        // const msgStat = new Paho.MQTT.Message("status");
-        // msgStat.destinationName = "focus/activate";
-        // client.send(msgStat);
-
     }
     else {
         await chrome.storage.local.set({ username: "Guest" });

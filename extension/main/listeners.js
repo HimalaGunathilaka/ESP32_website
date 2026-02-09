@@ -1,6 +1,8 @@
 
 // -------------------- Reactive observer --------------------
 chrome.storage.onChanged.addListener(async (changes, area) => {
+    const { username } = await chrome.storage.local.get("username");
+
     // console.log("Start of observer");
     if (area !== "local") return;
 
@@ -55,7 +57,7 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
             if (lenOld < lenNew) {
                 for (let i = lenOld; i < lenNew; i++) {
                     const msgURL = new Paho.MQTT.Message(`a|${newArr[i]}`);
-                    msgURL.destinationName = "focus/block/extension";
+                    msgURL.destinationName = `${username}focus/block/extension`;
                     client.send(msgURL);
 
                     console.log("Added")
@@ -65,7 +67,7 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
             } else {
                 for (let i = lenNew; i < lenOld; i++) {
                     const msgURL = new Paho.MQTT.Message(`d|${oldArr[i]}`);
-                    msgURL.destinationName = "focus/block/extension";
+                    msgURL.destinationName = `${username}focus/block/extension`;
                     client.send(msgURL);
 
                     console.log("Removed")
@@ -110,7 +112,7 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
 
         if (client && client.isConnected() && focusSource === "local") {
             const msg = new Paho.MQTT.Message(`a|${sessionCount}`);
-            msg.destinationName = "focus/activate";
+            msg.destinationName = `${username}/focus/activate`;
             msg.retained = true;   // ⭐ REQUIRED
             client.send(msg);
             await chrome.storage.local.set({ source: true });
@@ -154,7 +156,7 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
                 if (focusSource === "mqtt") return;
 
                 const msg = new Paho.MQTT.Message(`d|c|${sessionCount}`);
-                msg.destinationName = "focus/activate";
+                msg.destinationName = `${username}/focus/activate`;
                 msg.retained = true;   // ⭐ REQUIRED
                 client.send(msg);
             } else {
@@ -168,7 +170,7 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
                 // });
 
                 const msg = new Paho.MQTT.Message(`d|n|${sessionCount}`);
-                msg.destinationName = "focus/activate";
+                msg.destinationName = `${username}/focus/activate`;
                 msg.retained = true;   // ⭐ REQUIRED
                 client.send(msg);
             }

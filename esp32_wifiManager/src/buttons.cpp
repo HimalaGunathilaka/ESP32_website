@@ -5,6 +5,8 @@
 #include "wifi_mgr.h"
 #include <PubSubClient.h>
 
+#include "mqtt.h"
+
 // -------------------------
 // Pins
 // -------------------------
@@ -19,24 +21,22 @@
 WiFiClient espClient;
 PubSubClient client(espClient);
 
-
 // -------------------------
 // Global State
 // -------------------------
 int count = 1;
 
+// Count the number of completed sessions
+int sessionCount = 0;
 
 // ++++++++++++++++++++++++++++++++++++
 bool focusMode = false;
 // ++++++++++++++++++++++++++++++++++++
 
-const char *topic = "focus/activate";
-
 // -----------------
 unsigned long lastButtonTime = 0;
 const unsigned long debounceMs = 300;
 volatile bool buttonFocusPressed = false;
-
 
 // -------------------------
 // ISR
@@ -62,17 +62,24 @@ void buttonPress_focus()
   if (!client.connected())
     return;
 
+  // Get username from preferences
+  String username = prefs.getString("username", "");
+  String topic = username + "/focus/activate";
+
+  // Build payload with session count
+  char payload[20];
   if (focusMode)
-    client.publish(topic, "DEACTIVATE");
+    snprintf(payload, sizeof(payload), "d|n|0", sessionCount);
   else
-    client.publish(topic, "ACTIVATE");
+    snprintf(payload, sizeof(payload), "a|0", sessionCount);
+
+  isMessageSource = true;                       // Mark that we're publishing
+  client.publish(topic.c_str(), payload, true); // retained=true
 
   buttonFocusPressed = false;
   attachInterrupt(digitalPinToInterrupt(BUTTON_FOCUS),
                   handleFocusButtonInterrupt,
                   RISING);
 }
-
-
 
 #endif

@@ -15,6 +15,7 @@ unsigned long lastMQTTAttempt = 0;
 const unsigned long mqttRetryInterval = 5000;
 
 bool statusSent = false;
+bool isMessageSource = false;  // Track if we published the last message
 
 // ---------------------------------------------
 // MQTT
@@ -29,11 +30,27 @@ void callback(char *topic, byte *payload, unsigned int length)
   Serial.print("Payload: ");
   Serial.println(msg);
 
-  if (strcmp(msg, "activate") == 0)
+  // If this is our own message (echo), ignore it
+  if (isMessageSource) {
+    Serial.println("Ignoring own message");
+    isMessageSource = false;
+    return;
+  }
+
+  // Extract the rest to an int variable
+  int value = 0;
+
+  if (strncmp(msg, "a|", 2) == 0)
   {
     // if (!focusMode)
     //   count_focus++;
     focusMode = true;
+
+    if (strlen(msg) > 2)
+    {
+      value = atoi(msg + 2);
+    }
+
     applyFocusState();
   }
   else if (strncmp(msg, "d|c", 3) == 0)
@@ -41,12 +58,31 @@ void callback(char *topic, byte *payload, unsigned int length)
     focusMode = false;
     sessionComplete = true;
     applyFocusState();
+
+    if (strlen(msg) > 4)
+    {
+      value = atoi(msg + 4);
+    }
   }
   else if (strncmp(msg, "d|n", 3) == 0)
   {
     focusMode = false;
-    handleFocusEnd(msg);
     applyFocusState();
+
+    if (strlen(msg) > 4)
+    {
+      value = atoi(msg + 4);
+      handleFocusEnd(value);
+    }
+    else
+    {
+      handleFocusEnd(sessionCount);
+    }
+  }
+
+  if (value > sessionCount)
+  {
+    sessionCount = value;
   }
 }
 
@@ -73,8 +109,11 @@ void attemptMQTT()
                      false))
   {
     Serial.println("connected");
-    client.subscribe("focus/activate");
-    // client.subscribe("focus/session");
+    String username = prefs.getString("username", "");
+
+    String topic_str = username + "/focus/activate";
+
+    client.subscribe(topic_str.c_str());
     digitalWrite(ONBOARD_LED, HIGH);
   }
   else
@@ -131,20 +170,13 @@ void applyFocusState()
   }
 }
 
-void handleFocusEnd(char *payload)
+void handleFocusEnd(int payload)
 {
-  if (strlen(payload) > 4)
-  {
-    char *totalTimeStr = payload + 4;
-    long sessionTime = atol(totalTimeStr);
+  int sessionTime = SESSION_TIME * payload;
 
-    sessionTime = sessionTime / 60;
-
-    setDisplayNumber(sessionTime);
-    Serial.print("Diplay time");
-    Serial.println(totalTimeStr);
-    Serial.println(sessionTime);
-  }
+  setDisplayNumber(sessionTime);
+  Serial.print("Diplay time");
+  Serial.println(sessionTime);
 }
 
 #endif

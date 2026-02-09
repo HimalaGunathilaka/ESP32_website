@@ -49,7 +49,7 @@ async function getDevice_id(currentUser) {
 
         return await userCol.updateOne(
             { userId: currentUser },
-            { $inc: { [`sessionsCompleted.${dateKey}`]: count } }
+            { $set: { [`sessionsCompleted.${dateKey}`]: count } }
         );
     } catch (err) {
         console.error(err);
