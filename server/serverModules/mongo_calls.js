@@ -11,7 +11,7 @@ function setUserCollection(collection) {
     userCol = collection;
 }
 
- async function putDevice_id(deviceId, currentUser) {
+async function putDevice_id(deviceId, currentUser) {
     return await userCol.updateOne(
         { userId: currentUser },
         { $set: { deviceId } }
@@ -27,7 +27,7 @@ async function getDevice_id(currentUser) {
 }
 
 
- async function putDocument_BLOCKED(url, currentUser) {
+async function putDocument_BLOCKED(url, currentUser) {
     try {
         const result = await userCol.updateOne(
             { userId: currentUser, blockList: { $ne: url } },
@@ -43,7 +43,7 @@ async function getDevice_id(currentUser) {
     }
 }
 
- async function putSessionCount(count, currentUser) {
+async function putSessionCount(count, currentUser) {
     try {
         const dateKey = getDateKeySL();
 
@@ -57,7 +57,7 @@ async function getDevice_id(currentUser) {
 }
 
 
- async function removeDocument_BLOCKED(url, currentUser) {
+async function removeDocument_BLOCKED(url, currentUser) {
     try {
         const res = await userCol.updateOne(
             { userId: currentUser },
@@ -69,7 +69,7 @@ async function getDevice_id(currentUser) {
     }
 }
 
- async function getAll_BLOCKED(currentUser) {
+async function getAll_BLOCKED(currentUser) {
     try {
         const user = await userCol.findOne(
             { userId: currentUser },
@@ -82,7 +82,7 @@ async function getDevice_id(currentUser) {
     }
 }
 
- async function putTotalTime(total_time, day, currentUser) {
+async function putTotalTime(total_time, day, currentUser) {
     try {
         const res = await userCol.updateOne(
             { userId: currentUser },
@@ -100,7 +100,7 @@ async function getDevice_id(currentUser) {
   { url: "google.com" }
 ]
 */
- function getDateKeySL() {
+function getDateKeySL() {
     return new Date().toLocaleDateString("en-CA", {
         timeZone: "Asia/Colombo"
     });
