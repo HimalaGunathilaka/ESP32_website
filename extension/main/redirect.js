@@ -1,18 +1,22 @@
-const REDIRECT_RULE_ID = 1;
+/**
+ * @fileoverview Manages declarativeNetRequest rules and tab redirection
+ * for blocked websites.
+ */
 
-// -------------------- Redirect logic --------------------
 const REDIRECT_RULE_BASE_ID = 1000; // base id to avoid collisions
 
+/**
+ * Updates dynamic rules to block sites in the block list.
+ * @param {string[]} block List of URL patterns to block.
+ */
 
-async function enableRedirectRules() {
-    const { block = [] } = await chrome.storage.local.get("block");
+async function enableRedirectRules(block = []) {
+    await clearAllRedirectRules();
 
-    // Remove previous redirect rules (use index-based IDs)
-    const removeRuleIds = block.map((_, i) => REDIRECT_RULE_BASE_ID + i);
+    if (block.length === 0) return;
 
-    // Create redirect rules for each blocked site (use index-based IDs for uniqueness)
     const addRules = block
-        .filter(site => site) // Filter out empty/null entries
+        .filter(site => site && site.trim() !== '') // Filter out empty/null entries
         .map((site, i) => ({
             id: REDIRECT_RULE_BASE_ID + i,
             priority: 1,
@@ -23,40 +27,46 @@ async function enableRedirectRules() {
                 }
             },
             condition: {
-                urlFilter: site,               // ← uses block entries
+                // Standardize filter to ensure it matches domains correctly
+                urlFilter: `*://${site}/*`,
                 resourceTypes: ["main_frame"]
             }
         }));
 
-    await chrome.declarativeNetRequest.updateDynamicRules({
-        removeRuleIds,
-        addRules
-    });
-
-    // console.log("Redirect rules enabled for:", block);
+    try {
+        await chrome.declarativeNetRequest.updateDynamicRules({
+            addRules: addRules
+        });
+    } catch (err) {
+        console.error('Failed to update DNR rules:', err);
+    }
 }
 
+/**
+ * Scans all open tabs and redirects those that match the block list.
+ * @param {string[]} block List of URL patterns to block.
+ */
+async function redirectCurrentTab(block = []) {
+    if (block.length === 0) return;
 
-// ----Check all tabs and block them-----
-async function redirectCurrentTab() {
-    const tabs = await chrome.tabs.query({});
-    const { block = [] } = await chrome.storage.local.get("block");
+    const tabs = await chrome.tabs.query({ windowType: 'normal' });
+    const focusUrl = chrome.runtime.getURL('focus.html');
 
     for (const tab of tabs) {
-        if (!tab?.id || !tab?.url) continue;
-        if (tab.url.includes("focus.html")) continue;
-        // if (tab.url.startsWith("chrome://") || tab.url.startsWith("brave://")) continue;
+        if (!tab.id || !tab.url || tab.url.includes(focusUrl)) continue;
 
-        // Iterate over all the urls inside of block
-        if (block.some(site => tab.url.includes(site))) {
-            chrome.tabs.update(tab.id, {
-                url: chrome.runtime.getURL("focus.html")
-            });
+        const isBlocked = block.some(site => tab.url.includes(site));
+
+        if (isBlocked) {
+            // Use await to avoid flooding the browser with update requests
+            await chrome.tabs.update(tab.id, { url: focusUrl });
         }
     }
 }
 
-
+/**
+ * Remove all the dynamic rules created by this extension.
+ */
 async function clearAllRedirectRules() {
     const rules = await chrome.declarativeNetRequest.getDynamicRules();
     const ids = rules.map(r => r.id);

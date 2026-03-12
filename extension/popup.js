@@ -38,7 +38,7 @@ const espBtn = document.getElementById("espBtn");
 // -------------------- Init popup --------------------
 document.addEventListener("DOMContentLoaded", async () => {
   const hostname = await getActiveHostname();
-  const { deviceConnected } = await chrome.storage.local.get("deviceConnected");
+  // const { deviceConnected } = await chrome.storage.local.get("deviceConnected");
   const { isLogged } = await chrome.storage.local.get("isLogged");
 
   if (isLogged) {
@@ -48,9 +48,9 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   }
 
-  espBtn.textContent = deviceConnected ? "Connected" : "Disconnected"
+  // espBtn.textContent = deviceConnected ? "Connected" : "Disconnected"
 
-  if (deviceConnected) { espBtn.classList.add("active"); } else { espBtn.classList.remove("active"); }
+  // if (deviceConnected) { espBtn.classList.add("active"); } else { espBtn.classList.remove("active"); }
 
 
   // Read SYSTEM TRUTH
@@ -85,15 +85,15 @@ document.addEventListener("DOMContentLoaded", async () => {
   chrome.storage.onChanged.addListener(async (changes, area) => {
     if (area !== "local") return;
 
-    if (changes.deviceConnected) {
-      if (!changes.deviceConnected.newValue) {
-        espBtn.classList.remove("active");
-        espBtn.textContent = "Disconnected";
-      } else {
-        espBtn.classList.add("active");
-        espBtn.textContent = "Connected";
-      }
-    }
+    // if (changes.deviceConnected) {
+    //   if (!changes.deviceConnected.newValue) {
+    //     espBtn.classList.remove("active");
+    //     espBtn.textContent = "Disconnected";
+    //   } else {
+    //     espBtn.classList.add("active");
+    //     espBtn.textContent = "Connected";
+    //   }
+    // }
 
 
     if (changes.isLogged) {
@@ -247,7 +247,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (!deviceId) return;
 
     await chrome.storage.local.set({ deviceId });
-    await chrome.storage.local.set({ deviceConnected: true });
+    // await chrome.storage.local.set({ deviceConnected: true });
 
     await sendTo_server("POST", "/device/put", { deviceId });
     espBtn.textContent = "Connected";

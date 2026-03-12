@@ -10,7 +10,6 @@
 // -------------------------
 // Pins
 // -------------------------
-#define BUTTON_MQTT 33
 #define BUTTON_FOCUS 18
 #define LED_INDICATOR 19
 #define ONBOARD_LED 2
@@ -52,19 +51,23 @@ void buttonPress_focus()
   if (!buttonFocusPressed)
     return;
 
-  Serial.println("Focus pressed!");
-
   unsigned long now = millis();
   if (now - lastButtonTime < debounceMs)
     return;
+
+  Serial.println("Focus pressed!");
   lastButtonTime = now;
 
   if (!client.connected())
     return;
 
+  Serial.println("Reached here");
+
   // Get username from preferences
   String username = prefs.getString("username", "");
   String topic = username + "/focus/activate";
+
+  Serial.println(username);
 
   // Build payload with session count
   char payload[20];

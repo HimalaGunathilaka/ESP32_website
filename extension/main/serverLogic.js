@@ -48,8 +48,10 @@ async function sendTo_server(method, endpoint, payload) {
         // If we can't reach the server and the user was logged in, log them out
         if (method === "GET" && endpoint === "/auth/verify") {
             console.warn("Server unreachable - logging out user");
-            await chrome.storage.local.set({ username: "Guest" });
-            await chrome.storage.local.set({ isLogged: false });
+            await chrome.storage.local.set({
+                username: "Guest",
+                isLogged: false
+            });
         }
 
         return null;
@@ -58,13 +60,13 @@ async function sendTo_server(method, endpoint, payload) {
 
 
 async function fetchDeviceId() {
-  try {
-    const resp = await fetch("http://esp32.local/device-info");
-    const data = await resp.json();
-    console.log("Device ID:", data.device_id);
-    return data.device_id;
-  } catch (err) {
-    console.error("Could not reach ESP32:", err);
-    return null;
-  }
+    try {
+        const resp = await fetch("http://esp32.local/device-info");
+        const data = await resp.json();
+        console.log("Device ID:", data.device_id);
+        return data.device_id;
+    } catch (err) {
+        console.error("Could not reach ESP32:", err);
+        return null;
+    }
 }

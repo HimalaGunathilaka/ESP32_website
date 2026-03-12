@@ -21,7 +21,9 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
 
         } else {
             // disconnect mqtt
-            client.disconnect();
+            client.end(false, () => {
+                console.log('MQTT client disconnected gracefully');
+            });
         }
     }
 
@@ -30,8 +32,10 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
 
         if (data && data.block) {
             // Mark this as server-originated to prevent republishing
-            await chrome.storage.local.set({ urlMutex: "mqtt" });
-            await chrome.storage.local.set({ block: data.block });
+            await chrome.storage.local.set({
+                urlMutex: "mqtt",
+                block: data.block
+            });
             console.log("Block list updated:", data.block);
         }
     }
@@ -44,7 +48,7 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
         if (urlMutex === "mqtt") {
             // This change came from MQTT, don't republish (prevents echo loop)
             await chrome.storage.local.set({ urlMutex: "none" });
-        } else if (client && client.isConnected()) {
+        } else if (client && client.connected) {
             // This change is local, publish it to MQTT
             await chrome.storage.local.set({ urlMutex: "local" }); // Mark as local-originated
             const oldArr = changes.block.oldValue || [];
@@ -56,22 +60,17 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
             // publish the changes
             if (lenOld < lenNew) {
                 for (let i = lenOld; i < lenNew; i++) {
-                    const msgURL = new Paho.MQTT.Message(`a|${newArr[i]}`);
-                    msgURL.destinationName = `${username}focus/block/extension`;
-                    client.send(msgURL);
-
-                    console.log("Added")
-
-                    // sendTo_server("POST", "/url/add", { url: newArr[i] });
+                    const msgURL = `a|${newArr[i]}`;
+                    const destinationTopic = `${username}/focus/block/extension`;
+                    client.publish(destinationTopic, msgURL);
+                    console.log("Added");
                 }
             } else {
                 for (let i = lenNew; i < lenOld; i++) {
-                    const msgURL = new Paho.MQTT.Message(`d|${oldArr[i]}`);
-                    msgURL.destinationName = `${username}focus/block/extension`;
-                    client.send(msgURL);
-
-                    console.log("Removed")
-                    // sendTo_server("POST", "/url/remove", { url: oldArr[i] });
+                    const msgURL = `d|${oldArr[i]}`;
+                    const destinationName = `${username}/focus/block/extension`;
+                    client.publish(destinationName, msgURL);
+                    console.log("Removed");
                 }
             }
         }
@@ -82,6 +81,7 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
         const isEnabled = changes.absoluteFocusmode.newValue;
         if (isEnabled === true) {
             const { sessionTime } = await chrome.storage.local.get("sessionTime");
+
             chrome.alarms.create("focusSessionEnd", { delayInMinutes: sessionTime });
         } else {
             const { sessionComplete } = await chrome.storage.local.get("sessionComplete");
@@ -101,20 +101,23 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
     if (newFocus && !abs.absoluteFocusmode) {
 
         if (start === 0) {
-            await chrome.storage.local.set({ start: Date.now() });
-            await chrome.storage.local.set({ date: new Date().toISOString().split('T')[0] })
+            await chrome.storage.local.set({
+                start: Date.now(),
+                date: new Date().toISOString().split('T')[0]
+            })
         }
 
-        await enableRedirectRules();
-        await redirectCurrentTab();
+        const { block = [] } = await chrome.storage.local.get("block");
+
+        await enableRedirectRules(block);
+        await redirectCurrentTab(block);
         await chrome.storage.local.set({ absoluteFocusmode: true });
 
 
-        if (client && client.isConnected() && focusSource === "local") {
-            const msg = new Paho.MQTT.Message(`a|${sessionCount}`);
-            msg.destinationName = `${username}/focus/activate`;
-            msg.retained = true;   // ⭐ REQUIRED
-            client.send(msg);
+        if (client && client.connected) {
+            const msg = `a|${sessionCount}`;
+            const destinationName = `${username}/focus/activate`;
+            client.publish(destinationName, msg, { retain: true });
             await chrome.storage.local.set({ source: true });
         }
 
@@ -137,14 +140,16 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
 
         // ---- Deactivation allowed ----
         await clearAllRedirectRules();
-        await chrome.storage.local.set({ absoluteFocusmode: false });
-        await chrome.storage.local.set({ focusMode: false });
+        await chrome.storage.local.set({
+            absoluteFocusmode: false,
+            focusMode: false
+        });
 
         // await elapsedSeconds();
 
         // console.log("Focus mode OFF");
 
-        if (client && client.isConnected()) {
+        if (client && client.connected) {
 
             const { sessionComplete } = await chrome.storage.local.get("sessionComplete");
 
@@ -153,15 +158,14 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
                 sessionSrc = false;
 
                 // If this was already received no need to publish it again
-                if (focusSource === "mqtt") return;
+                // if (focusSource === "mqtt") return;
 
-                const msg = new Paho.MQTT.Message(`d|c|${sessionCount}`);
-                msg.destinationName = `${username}/focus/activate`;
-                msg.retained = true;   // ⭐ REQUIRED
-                client.send(msg);
+                const msg = `d|c|${sessionCount}`;
+                const destinationName = `${username}/focus/activate`;
+                client.publish(destinationName, msg, { retain: true });
             } else {
                 // If this was already received no need to publish it again
-                if (focusSource === "mqtt") return;
+                // if (focusSource === "mqtt") return;
 
                 // chrome.storage.local.get(["total_time"], (data) => {
                 //     const totalTime = data.total_time ?? 0;
@@ -169,10 +173,9 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
                 //     // Client id is not used
                 // });
 
-                const msg = new Paho.MQTT.Message(`d|n|${sessionCount}`);
-                msg.destinationName = `${username}/focus/activate`;
-                msg.retained = true;   // ⭐ REQUIRED
-                client.send(msg);
+                const msg = `d|n|${sessionCount}`;
+                const destinationName = `${username}/focus/activate`;
+                client.publish(destinationName, msg, { retain: true });
             }
         }
     }

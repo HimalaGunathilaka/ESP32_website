@@ -15,13 +15,16 @@ unsigned long lastMQTTAttempt = 0;
 const unsigned long mqttRetryInterval = 5000;
 
 bool statusSent = false;
-bool isMessageSource = false;  // Track if we published the last message
+bool isMessageSource = false; // Track if we published the last message
 
 // ---------------------------------------------
 // MQTT
 // ---------------------------------------------
 void callback(char *topic, byte *payload, unsigned int length)
 {
+  String username = prefs.getString("username", "");
+  String topic_str = username + "/focus/activate";
+
   // Make sure payload is null-terminated
   char msg[length + 1];
   memcpy(msg, payload, length);
@@ -30,8 +33,12 @@ void callback(char *topic, byte *payload, unsigned int length)
   Serial.print("Payload: ");
   Serial.println(msg);
 
+  if (strcmp(topic, topic_str.c_str()) != 0)
+    return;
+
   // If this is our own message (echo), ignore it
-  if (isMessageSource) {
+  if (isMessageSource)
+  {
     Serial.println("Ignoring own message");
     isMessageSource = false;
     return;
@@ -110,7 +117,6 @@ void attemptMQTT()
   {
     Serial.println("connected");
     String username = prefs.getString("username", "");
-
     String topic_str = username + "/focus/activate";
 
     client.subscribe(topic_str.c_str());
