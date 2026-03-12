@@ -7,15 +7,18 @@
 
 #include <ESPmDNS.h>
 #include <WebServer.h>
+#include <ArduinoJson.h>
+#include <Preferences.h>
 
 WebServer server(80);
+Preferences prefs;
 
 #define BUZZER_PIN 23
 
 #define BUZZER_CHANNEL 0
 #define BUZZER_RESOLUTION 8
 
-int sessionCount = 0;
+// int sessionCount = 0;
 
 void beep(unsigned int freq, unsigned int durationMs)
 {
@@ -30,6 +33,9 @@ void beep(unsigned int freq, unsigned int durationMs)
 void setup()
 {
   Serial.begin(115200);
+
+  // Startup file system
+  prefs.begin("device", false);
 
   total_time = 0;
 
@@ -62,8 +68,32 @@ void setup()
 
   Serial.println("mDNS responder started");
 
-  server.on("/device-info", HTTP_GET, []()
+  server.on("/device-info", HTTP_POST, []()
             {
+
+              if(!server.hasArg("plain")){
+                server.send(400, "application/json", "{\"error\":\"No body\"}");
+                return;
+              }
+
+              String body = server.arg("plain");
+
+              StaticJsonDocument<200> doc;
+              DeserializationError error = deserializeJson(doc,body);
+
+              if(error){
+    server.send(400, "application/json", "{\"error\":\"Invalid JSON\"}");
+  return;
+              }
+
+              const char* username = doc["username"];
+  if (!username) {
+    server.send(400, "application/json", "{\"error\":\"No username\"}");
+    return;
+  }
+  // ---- SAVE (overwrite if exists) ----
+  prefs.putString("username", username);
+
         uint64_t id = ESP.getEfuseMac();
         char buf[20];
         sprintf(buf, "%04X%08X", (uint16_t)(id >> 32), (uint32_t)id);

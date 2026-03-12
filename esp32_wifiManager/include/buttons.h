@@ -4,6 +4,8 @@
 #include <Arduino.h>
 #include "wifi_mgr.h"
 #include <PubSubClient.h>
+#include <Preferences.h>
+#include "buttons.h"
 
 // -------------------------
 // Pins
@@ -19,12 +21,12 @@ extern WiFiClient espClient;
 extern PubSubClient client;
 
 extern int count;
+extern int sessionCount;
+extern Preferences prefs;
 
 extern bool focusMode;
 extern volatile bool buttonMQTTPressed;
 extern volatile bool buttonFocusPressed;
-
-extern const char *topic;
 
 // -------------------------
 // Function Declarations

@@ -1,26 +1,25 @@
 async function updateTimer() {
-  const { absoluteFocusmode, total_time = 0, start = 0 } =
+  const { absoluteFocusmode, sessionCount = 0, sessionTime } =
     await chrome.storage.local.get([
       "absoluteFocusmode",
-      "total_time",
-      "start"
+      "sessionCount",
+      "sessionTime"
+      // "total_time",
+      // "start"
     ]);
-
-  // let secs = total_time;
 
   let secs = 0;
 
-  if (absoluteFocusmode && start) {
-    secs += Math.floor((Date.now() - start) / 1000);
+  if (absoluteFocusmode) {
+    mins = sessionCount * sessionTime;
+    renderTime(mins);
   }
 
-  renderTime(secs);
 }
 
-function renderTime(secs) {
-  const hours = Math.floor(secs / 3600);
-  const minutes = Math.floor((secs % 3600) / 60);
-  const seconds = secs % 60;
+function renderTime(mins) {
+  const hours = Math.floor(mins / 60);
+  const minutes = mins % 60;
 
   document.getElementById("timer").textContent =
     `${String(hours).padStart(2, "0")} h:` +

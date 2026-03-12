@@ -20,62 +20,15 @@ importScripts(
     'main/serverLogic.js'
 );
 
-
-
-
 const SERVER_BASE = "http://localhost:8080";
-
-// const RESET_TIME = 600000; // 10 minutes
-// const WS_URL = "ws://192.168.1.19:81";
 const COOLOFF_TIME = 5000;
 
-
-// ======================================================
-// ======================================================
-// Time related stuff
-// ======================================================
-// ======================================================
-
-// -------------------- Time tracking --------------------
-async function elapsedSeconds() {
-    const end = Date.now();
-    const today = new Date();
-    const { date } = await chrome.storage.local.get("date");
-
-    const { start = 0, total_time = 0 } =
-        await chrome.storage.local.get(["start", "total_time"]);
-
-    if (date && new Date(date).toDateString() !== today.toDateString()) {
-        sendTo_server("POST", "/time/total", total_time);
-
-        await chrome.storage.local.set({
-            start: 0,
-            total_time: 0
-        });
-        return;
-    }
-
-
-
-    // This condition is set for whenever start was not captured 
-    // which implies do not calculate elapsed time for that instance.
-    if (start === 0) return;
-
-    const elapsed = Math.floor((end - start) / 1000);
-    await chrome.storage.local.set({
-        total_time: total_time + elapsed,
-        start: 0
-    });
+// Initialize MQTT without blocking the rest of the extension
+try {
+    initializeMQTT();
+} catch (err) {
+    console.warn("MQTT initialization failed (non-critical):", err);
 }
-
-// --------------Reset total time after t time---------------
-// --------------To depict the end of the day----------------
-async function resetTotal_time() {
-    chrome.storage.local.set({ total_time: 0 });
-}
-
-
-initializeMQTT();
 
 
 // ===============================
@@ -87,7 +40,20 @@ chrome.alarms.onAlarm.addListener(async (alaram) => {
         if (!client || !client.isConnected()) initializeMQTT();
     }
     else if (alaram.name === "focusSessionEnd") {
+        const { sessionCount } = await chrome.storage.local.get("sessionCount");
+        const { date } = await chrome.storage.local.get("date");
+        const today = new Date();
+
+        if (date && new Date(date).toDateString() !== today.toDateString()) {
+            await chrome.storage.local.set({ sessionCount: 0 });
+            await chrome.storage.local.set({ date: today });
+        }
+
+        await chrome.storage.local.set({ sessionCount: sessionCount + 1 });
         await achieveSession();
+        const sendToServer = sessionCount + 1;
+        await sendTo_server("POST", "/session/complete", { sessionCount: sendToServer });
+
     }
 });
 
@@ -118,13 +84,12 @@ async function achieveSession() {
 (async () => {
     const valid = await sendTo_server("GET", "/auth/verify");
     if (valid) {
-        initializeMQTT();
+        try {
+            initializeMQTT();
+        } catch (err) {
+            console.warn("MQTT initialization failed (non-critical):", err);
+        }
         console.log("Token is valid");
-
-        // const msgStat = new Paho.MQTT.Message("status");
-        // msgStat.destinationName = "focus/activate";
-        // client.send(msgStat);
-
     }
     else {
         await chrome.storage.local.set({ username: "Guest" });

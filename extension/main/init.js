@@ -1,9 +1,9 @@
 // -------------------- Init storage safely --------------------
 chrome.storage.local.get(
-    ["focusMode", "total_time", "absoluteFocusmode",
-        "start", "date",
-        "block",  "urlMutex","source","focusSource",
-        "sessionComplete", "sessionCompleteIndicator", "sessionTime",
+    ["focusMode", "absoluteFocusmode",
+        "date", "start",
+        "block", "urlMutex", "source", "focusSource",
+        "sessionCount", "sessionComplete", "sessionCompleteIndicator", "sessionTime",
         "naturalCompletion",
         "isLogged", "username", "token",
         "deviceId", "deviceConnected",
@@ -22,7 +22,7 @@ chrome.storage.local.get(
             chrome.storage.local.set({ start: 0 });
 
         if (data.date === undefined)
-            chrome.storage.local.set({ date: new Date()});
+            chrome.storage.local.set({ date: new Date() });
 
         // The blocked list
         if (data.block === undefined)
@@ -68,13 +68,17 @@ chrome.storage.local.get(
             })
         }
 
-        if(data.focusSource === undefined){
+        if (data.sessionCount === undefined) {
+            chrome.storage.local.set({
+                sessionCount: 0
+            })
+        }
+
+        if (data.focusSource === undefined) {
             chrome.storage.local.set({
                 focusSource: "local"
             })
         }
-
-
         //-----------------------------------------------
         // Authentication
         if (data.isLogged === undefined) {
