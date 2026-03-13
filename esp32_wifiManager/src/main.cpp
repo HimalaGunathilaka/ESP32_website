@@ -82,22 +82,24 @@ void setup()
               DeserializationError error = deserializeJson(doc,body);
 
               if(error){
-    server.send(400, "application/json", "{\"error\":\"Invalid JSON\"}");
-  return;
+              server.send(400, "application/json", "{\"error\":\"Invalid JSON\"}");
+              return;
               }
 
               const char* username = doc["username"];
-  if (!username) {
-    server.send(400, "application/json", "{\"error\":\"No username\"}");
-    return;
-  }
-  // ---- SAVE (overwrite if exists) ----
-  prefs.putString("username", username);
+              if (!username) {
+                server.send(400, "application/json", "{\"error\":\"No username\"}");
+                return;
+              }
+              // ---- SAVE (overwrite if exists) ----
+              prefs.putString("username", username);
 
-        uint64_t id = ESP.getEfuseMac();
-        char buf[20];
-        sprintf(buf, "%04X%08X", (uint16_t)(id >> 32), (uint32_t)id);
-        server.send(200, "application/json", String("{\"device_id\":\"") + buf + "\"}"); });
+              uint64_t id = ESP.getEfuseMac();
+              char buf[20];
+              sprintf(buf, "%04X%08X", (uint16_t)(id >> 32), (uint32_t)id);
+              server.send(200, "application/json", String("{\"device_id\":\"") + buf + "\"}"); 
+            }
+          );
 
   server.begin();
   Serial.println("HTTP server started");

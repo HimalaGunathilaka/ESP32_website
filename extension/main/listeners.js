@@ -1,181 +1,122 @@
+/**
+ * @fileoverview Reactive observer for storage changes.
+ * Acts as the central coordinator for UI, MQTT, and Blocking logic.
+ */
 
-// -------------------- Reactive observer --------------------
 chrome.storage.onChanged.addListener(async (changes, area) => {
-    const { username } = await chrome.storage.local.get("username");
+    if (area !== 'local') return;
 
-    // console.log("Start of observer");
-    if (area !== "local") return;
+    // 1. Batch fetch current state to minimize async overhead
+    const state = await chrome.storage.local.get([
+        'username', 'absoluteFocusmode', 'focusMode', 'focusSource',
+        'sessionCount', 'sessionTime', 'sessionComplete', 'urlMutex', 'block', 'start'
+    ]);
 
-    const abs = await chrome.storage.local.get("absoluteFocusmode");
+    const { username, absoluteFocusmode, urlMutex, block = [] } = state;
 
+    // ----------------------------------------------------------
+    // AUTHENTICATION & CONNECTION
+    // ----------------------------------------------------------
     if (changes.isLogged) {
         if (changes.isLogged.newValue) {
-            chrome.storage.local.set({ date: new Date() });
+            await chrome.storage.local.set({ date: new Date().toISOString() });
             initializeMQTT();
-            chrome.alarms.create("mqttPing", { periodInMinutes: 0.5 });
-
-            const id = await fetchDeviceId();
-            if (id) {
-                chrome.storage.local.set({ deviceId: id });
-            }
-
-        } else {
-            // disconnect mqtt
-            client.disconnect();
+            chrome.alarms.create('mqttPing', { periodInMinutes: 0.5 });
+        } else if (typeof client !== 'undefined' && client) {
+            client.end(false);
         }
     }
 
-    if (changes.username && changes.username !== "Guest") {
-        const data = await sendTo_server("GET", "/url/list");
-
-        if (data && data.block) {
-            // Mark this as server-originated to prevent republishing
-            await chrome.storage.local.set({ urlMutex: "mqtt" });
-            await chrome.storage.local.set({ block: data.block });
-            console.log("Block list updated:", data.block);
-        }
-    }
-
+    // ----------------------------------------------------------
+    // BLOCK LIST SYNC (MQTT <-> LOCAL)
+    // ----------------------------------------------------------
     if (changes.block) {
         handleTabChange_icon();
 
-        const { urlMutex } = await chrome.storage.local.get("urlMutex");
-
-        if (urlMutex === "mqtt") {
-            // This change came from MQTT, don't republish (prevents echo loop)
-            await chrome.storage.local.set({ urlMutex: "none" });
-        } else if (client && client.isConnected()) {
-            // This change is local, publish it to MQTT
-            await chrome.storage.local.set({ urlMutex: "local" }); // Mark as local-originated
-            const oldArr = changes.block.oldValue || [];
-            const newArr = changes.block.newValue || [];
-
-            const lenOld = oldArr.length;
-            const lenNew = newArr.length;
-
-            // publish the changes
-            if (lenOld < lenNew) {
-                for (let i = lenOld; i < lenNew; i++) {
-                    const msgURL = new Paho.MQTT.Message(`a|${newArr[i]}`);
-                    msgURL.destinationName = `${username}focus/block/extension`;
-                    client.send(msgURL);
-
-                    console.log("Added")
-
-                    // sendTo_server("POST", "/url/add", { url: newArr[i] });
-                }
-            } else {
-                for (let i = lenNew; i < lenOld; i++) {
-                    const msgURL = new Paho.MQTT.Message(`d|${oldArr[i]}`);
-                    msgURL.destinationName = `${username}focus/block/extension`;
-                    client.send(msgURL);
-
-                    console.log("Removed")
-                    // sendTo_server("POST", "/url/remove", { url: oldArr[i] });
-                }
-            }
+        if (urlMutex === 'mqtt') {
+            // Logic came from server/MQTT: Reset mutex and stop to avoid echo
+            await chrome.storage.local.set({ urlMutex: 'none' });
+        } else if (typeof client !== 'undefined' && client?.connected) {
+            // Logic came from UI: Publish diff to MQTT
+            await syncBlockListToMqtt(changes.block.oldValue || [], changes.block.newValue || [], username);
         }
-        if (abs.absoluteFocusmode) await redirectCurrentTab();
+
+        if (absoluteFocusmode) await redirectCurrentTabs(block);
     }
 
+    // ----------------------------------------------------------
+    // FOCUS MODE LOGIC (ACTIVATE / DEACTIVATE)
+    // ----------------------------------------------------------
+    if (changes.focusMode) {
+
+        await handleFocusModeToggle(changes.focusMode.newValue, state);
+    }
+    
+    // ----------------------------------------------------------
+    // SESSION ALARMS
     if (changes.absoluteFocusmode) {
         const isEnabled = changes.absoluteFocusmode.newValue;
-        if (isEnabled === true) {
-            const { sessionTime } = await chrome.storage.local.get("sessionTime");
-            chrome.alarms.create("focusSessionEnd", { delayInMinutes: sessionTime });
-        } else {
-            const { sessionComplete } = await chrome.storage.local.get("sessionComplete");
-            if (!sessionComplete) {
-                chrome.alarms.clear("focusSessionEnd");
-            }
-        }
-    }
-
-    if (!changes.focusMode) return;
-
-    const newFocus = changes.focusMode.newValue;
-    const { start } = await chrome.storage.local.get("start");
-    const { focusSource } = await chrome.storage.local.get("focusSource");
-    const { sessionCount } = await chrome.storage.local.get("sessionCount");
-
-    if (newFocus && !abs.absoluteFocusmode) {
-
-        if (start === 0) {
-            await chrome.storage.local.set({ start: Date.now() });
-            await chrome.storage.local.set({ date: new Date().toISOString().split('T')[0] })
-        }
-
-        await enableRedirectRules();
-        await redirectCurrentTab();
-        await chrome.storage.local.set({ absoluteFocusmode: true });
-
-
-        if (client && client.isConnected() && focusSource === "local") {
-            const msg = new Paho.MQTT.Message(`a|${sessionCount}`);
-            msg.destinationName = `${username}/focus/activate`;
-            msg.retained = true;   // ⭐ REQUIRED
-            client.send(msg);
-            await chrome.storage.local.set({ source: true });
-        }
-
-    } else {
-        const elapsed = Date.now() - start;
-
-        // console.log("tried")
-        if (elapsed < COOLOFF_TIME) {
-            // console.log("Deactivation blocked (1 min lock)");
-            // console.log(elapsed);
-
-            // Re-assert truth
-            await chrome.storage.local.set({
-                focusMode: true,
-                absoluteFocusmode: true
-            });
-
-            return;
-        }
-
-        // ---- Deactivation allowed ----
-        await clearAllRedirectRules();
-        await chrome.storage.local.set({ absoluteFocusmode: false });
-        await chrome.storage.local.set({ focusMode: false });
-
-        // await elapsedSeconds();
-
-        // console.log("Focus mode OFF");
-
-        if (client && client.isConnected()) {
-
-            const { sessionComplete } = await chrome.storage.local.get("sessionComplete");
-
-            if (sessionComplete && sessionSrc) {
-                chrome.storage.local.set({ sessionComplete: false });
-                sessionSrc = false;
-
-                // If this was already received no need to publish it again
-                if (focusSource === "mqtt") return;
-
-                const msg = new Paho.MQTT.Message(`d|c|${sessionCount}`);
-                msg.destinationName = `${username}/focus/activate`;
-                msg.retained = true;   // ⭐ REQUIRED
-                client.send(msg);
-            } else {
-                // If this was already received no need to publish it again
-                if (focusSource === "mqtt") return;
-
-                // chrome.storage.local.get(["total_time"], (data) => {
-                //     const totalTime = data.total_time ?? 0;
-                //     // Flag to deactivate `d` and total focus time is being sent. 
-                //     // Client id is not used
-                // });
-
-                const msg = new Paho.MQTT.Message(`d|n|${sessionCount}`);
-                msg.destinationName = `${username}/focus/activate`;
-                msg.retained = true;   // ⭐ REQUIRED
-                client.send(msg);
-            }
+        if (isEnabled) {
+            chrome.alarms.create('focusSessionEnd', { delayInMinutes: state.sessionTime });
+        } else if (!state.sessionComplete) {
+            chrome.alarms.clear('focusSessionEnd');
         }
     }
 });
 
+/**
+ * Handles the logic when focus mode is turned on or off.
+ */
+async function handleFocusModeToggle(isStarting, state) {
+    const { username, sessionCount, start, absoluteFocusmode, block } = state;
+    const now = Date.now();
 
+    if (isStarting && !absoluteFocusmode) {
+        // START FOCUS
+        const startTime = start === 0 ? now : start;
+        await chrome.storage.local.set({
+            start: startTime,
+            date: new Date().toISOString(),
+            absoluteFocusmode: true
+        });
+
+        await enableRedirectRules(block);
+        await redirectCurrentTabs(block);
+
+        publishMqtt(username, 'activate', `a|${sessionCount}`);
+
+    } else if (!isStarting && absoluteFocusmode) {
+        // STOP FOCUS (with Cool-off check)
+        if (now - start < COOLOFF_TIME) {
+            // Revert if too soon
+            await chrome.storage.local.set({ focusMode: true, absoluteFocusmode: true });
+            return;
+        }
+
+        await clearAllRedirectRules();
+        await chrome.storage.local.set({ absoluteFocusmode: false, focusMode: false, start: 0 });
+
+        const status = state.sessionComplete ? 'c' : 'n';
+        publishMqtt(username, 'activate', `d|${status}|${sessionCount}`);
+    }
+}
+
+/**
+ * Helper to determine exactly which URLs were added or removed.
+ */
+function syncBlockListToMqtt(oldArr, newArr, username) {
+    const added = newArr.filter(x => !oldArr.includes(x));
+    const removed = oldArr.filter(x => !newArr.includes(x));
+
+    added.forEach(url => publishMqtt(username, 'block/extension', `a|${url}`));
+    removed.forEach(url => publishMqtt(username, 'block/extension', `d|${url}`));
+}
+
+/**
+ * Safely publishes to MQTT if client is available.
+ */
+function publishMqtt(username, topicSuffix, message) {
+    if (typeof client !== 'undefined' && client?.connected) {
+        client.publish(`${username}/focus/${topicSuffix}`, message, { retain: true });
+    }
+}
