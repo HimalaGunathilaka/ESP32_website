@@ -49,9 +49,10 @@ void callback(char *topic, byte *payload, unsigned int length)
 
   if (strncmp(msg, "a|", 2) == 0)
   {
-    // if (!focusMode)
-    //   count_focus++;
-    focusMode = true;
+    if (!focusMode)
+    {
+      focusMode = true;
+    }
 
     if (strlen(msg) > 2)
     {
@@ -62,9 +63,12 @@ void callback(char *topic, byte *payload, unsigned int length)
   }
   else if (strncmp(msg, "d|c", 3) == 0)
   {
-    focusMode = false;
-    sessionComplete = true;
-    applyFocusState();
+    if (focusMode)
+    {
+      focusMode = false;
+      sessionComplete = true;
+      applyFocusState();
+    }
 
     if (strlen(msg) > 4)
     {
@@ -73,8 +77,11 @@ void callback(char *topic, byte *payload, unsigned int length)
   }
   else if (strncmp(msg, "d|n", 3) == 0)
   {
-    focusMode = false;
-    applyFocusState();
+    if (focusMode)
+    {
+      focusMode = false;
+      applyFocusState();
+    }
 
     if (strlen(msg) > 4)
     {
