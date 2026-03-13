@@ -29,9 +29,13 @@ safeMQTTInit();
  */
 chrome.alarms.onAlarm.addListener(async (alaram) => {
     if (alaram.name === "mqttPing") {
+        // Check if logged in first
+        const { isLogged } = await chrome.storage.local.get('isLogged');
+        if (!isLogged) return;
+
         // Check if client exists in global scope and is connected
         const isConnected = typeof client !== 'undefined' && client?.connected;
-        if (!isConnected) safeMqttInit();
+        if (!isConnected) safeMQTTInit();
     }
     else if (alaram.name === "focusSessionEnd") {
         await handleSessionCompletion();

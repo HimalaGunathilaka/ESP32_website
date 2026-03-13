@@ -1,150 +1,151 @@
-// ======================================================
+/**
+ * @fileoverview Manages MQTT connectivity and message routing for focus sessions.
+ */
+
 let client = null;
+const MQTT_CONFIG = {
+  host: 'localhost',
+  port: 9001,
+  protocol: 'ws',
+  reconnectPeriod: 5000, // Increased for stability
+  connectTimeout: 5000
+};
 
-const MQTT_BROKER_LOCATION = "localhost";
-const PORT = 9001;
-
+/**
+ * Main entry point for MQTT. Ensures only one connection exists.
+ */
 async function initializeMQTT() {
-    const { username } = await chrome.storage.local.get("username");
-    if (!username) return; // stop if no username stored
+  const { username, isLogged, token } = await chrome.storage.local.get([
+    'username', 'isLogged', 'token'
+  ]);
 
-    try {
-        const { isLogged } = await chrome.storage.local.get("isLogged");
-        if (!isLogged) return;
+  // Early exit if unauthorized
+  if (!isLogged || !username) return;
 
-        // Construct WebSocket URL for browser
-        const url = `ws://${MQTT_BROKER_LOCATION}:${PORT}/mqtt`;
+  // Clean up existing client before reconnecting
+  if (client) {
+    client.end(true);
+    client = null;
+  }
 
-        const options = {
-            clean: true,
-            reconnectPeriod: 2000, // Reconnect in 2 seconds
-            connectTimeout: 4000,
-            clientId: "worker-" + crypto.randomUUID(),
-            username: "himala",
-            password: "123"
-        };
+  const url = `${MQTT_CONFIG.protocol}://${MQTT_CONFIG.host}:${MQTT_CONFIG.port}/mqtt`;
 
-        client = mqtt.connect(url, options);
+  const options = {
+    clean: true,
+    reconnectPeriod: MQTT_CONFIG.reconnectPeriod,
+    connectTimeout: MQTT_CONFIG.connectTimeout,
+    clientId: `worker-${crypto.randomUUID()}`,
+    username: "himala", // Use dynamic username
+    password: "123"   // Usually, token is used as password in pro apps
+  };
 
-        // MQTT event handlers
-        client.on('connect', async () => {
-            console.log("MQTT connected");
+  client = mqtt.connect(url, options);
 
-            try {
-                // Subscribe to user topics
-                client.subscribe(`${username}/focus/#`);
+  setupEventHandlers(username);
+}
 
-                // Device ID management
-                const { deviceId } = await chrome.storage.local.get("deviceId");
-                if (!deviceId) {
-                    const result = await sendTo_server("GET", "/device/get");
-                    if (result) await chrome.storage.local.set({ deviceId: result });
-                }
+/**
+ * Attaches handlers to the MQTT client.
+ * @param {string} username The current user's handle.
+ */
+function setupEventHandlers(username) {
+  if (!client) return;
 
-                // Initial fetch for block list from server
-                const data = await sendTo_server("GET", "/url/list");
-                if (data && data.block) {
-                    await chrome.storage.local.set({
-                        urlMutex: "mqtt",
-                        block: data.block
-                    });
-                    console.log("Block list updated:", data.block);
-                }
+  client.on('connect', async () => {
+    console.log('MQTT: Connected to broker');
+    client.subscribe(`${username}/focus/#`);
+    
+    // Sync initial state from server
+    await syncInitialState();
+  });
 
-            } catch (err) {
-                console.error("MQTT connect handler error:", err);
-                setTimeout(initializeMQTT, 2000); // retry after 2s
-            }
-        });
+  client.on('message', async (topic, payload) => {
+    const message = payload.toString();
+    // Fetch all needed state once per message
+    const state = await chrome.storage.local.get(['sessionCount', 'urlMutex', 'block']);
+    
+    handleIncomingMessage(topic, message, state, username);
+  });
 
-        client.on('message', async (topic, payload) => {
-            payload = payload.toString(); // ensure string
-            const { sessionCount } = await chrome.storage.local.get("sessionCount");
+  client.on('error', (err) => {
+    console.error('MQTT: Error context:', err.message);
+  });
 
-            switch (topic) {
-                // ===== FOCUS ACTIVATE / DEACTIVATE =====
-                case `${username}/focus/activate`:
-                    let send_back = null;
+  // Note: mqtt.js handles reconnection automatically via reconnectPeriod.
+  // We don't need a manual setTimeout(initializeMQTT) unless the process crashes.
+}
 
-                    if (payload.startsWith("a|")) {
-                        const count_received = parseInt(payload.split("|")[1]);
-                        await chrome.storage.local.set({ focusSource: "mqtt", focusMode: true });
+/**
+ * Logic for handling specific MQTT topics.
+ */
+async function handleIncomingMessage(topic, payload, state, username) {
+  const { sessionCount, urlMutex, block = [] } = state;
+  let responsePayload = null;
 
-                        if (count_received < sessionCount) {
-                            send_back = `${sessionCount}`;
-                        } else if (count_received > sessionCount) {
-                            await chrome.storage.local.set({ sessionCount: count_received });
-                        }
+  // 1. Focus Activation Logic
+  if (topic === `${username}/focus/activate`) {
+    const isActivating = payload.startsWith('a|');
+    const parts = payload.split('|');
+    const receivedCount = parseInt(parts[1] || parts[2]);
 
-                    } else if (payload.startsWith("d|")) {
-                        const count_received = parseInt(payload.split("|")[2]);
-                        await chrome.storage.local.set({ focusSource: "mqtt", focusMode: false });
+    await chrome.storage.local.set({ 
+      focusSource: 'mqtt', 
+      focusMode: isActivating 
+    });
 
-                        if (payload.startsWith("d|n") || payload.startsWith("d|c")) {
-                            if (count_received < sessionCount) {
-                                send_back = `${sessionCount}`;
-                            } else if (count_received > sessionCount) {
-                                await chrome.storage.local.set({ sessionCount: count_received });
-                            }
-                        }
-                    }
-
-                    if (send_back) {
-                        const destinationName = `${username}/focus/count`;
-                        client.publish(destinationName, send_back);
-                    }
-                    break;
-
-                // ===== FOCUS COUNT =====
-                case `${username}/focus/count`:
-                    const receivedCount = parseInt(payload);
-                    if (receivedCount > sessionCount) {
-                        await chrome.storage.local.set({ sessionCount: receivedCount });
-                    } else if (receivedCount < sessionCount) {
-                        client.publish(`${username}/focus/count`, `${sessionCount}`);
-                    }
-                    break;
-
-                // ===== BLOCK LIST =====
-                case `${username}/focus/block/extension`:
-                    const { urlMutex } = await chrome.storage.local.get("urlMutex");
-
-                    if (urlMutex === "local") {
-                        await chrome.storage.local.set({ urlMutex: "none" });
-                    } else {
-                        const result = await chrome.storage.local.get("block");
-                        const block = result.block || [];
-                        const event = payload[0];
-                        const url = payload.slice(2);
-
-                        const urlExists = block.includes(url);
-
-                        if (event === 'a' && !urlExists) {
-                            block.push(url);
-                            await chrome.storage.local.set({ urlMutex: "mqtt", block });
-                        } else if (event === 'd' && urlExists) {
-                            const index = block.indexOf(url);
-                            block.splice(index, 1);
-                            await chrome.storage.local.set({ urlMutex: "mqtt", block });
-                        }
-                    }
-                    break;
-
-                default:
-                    console.log("Unhandled topic:", topic, payload);
-            }
-        });
-
-        client.on('error', (err) => {
-            console.error("MQTT error:", err);
-        });
-
-        client.on('close', () => {
-            console.log("MQTT disconnected, retrying in 2s");
-            setTimeout(initializeMQTT, 2000);
-        });
-
-    } catch (err) {
-        console.error("MQTT initialization error:", err);
+    if (!isNaN(receivedCount)) {
+      if (receivedCount < sessionCount) {
+        responsePayload = `${sessionCount}`;
+      } else if (receivedCount > sessionCount) {
+        await chrome.storage.local.set({ sessionCount: receivedCount });
+      }
     }
+  }
+
+  // 2. Block List Logic (Extension specific)
+  if (topic === `${username}/focus/block/extension`) {
+    if (urlMutex === 'local') {
+      await chrome.storage.local.set({ urlMutex: 'none' });
+      return;
+    }
+
+    const action = payload[0]; // 'a' or 'd'
+    const targetUrl = payload.slice(2);
+    const updatedBlock = [...block];
+
+    if (action === 'a' && !updatedBlock.includes(targetUrl)) {
+      updatedBlock.push(targetUrl);
+    } else if (action === 'd') {
+      const index = updatedBlock.indexOf(targetUrl);
+      if (index > -1) updatedBlock.splice(index, 1);
+    }
+
+    await chrome.storage.local.set({ urlMutex: 'mqtt', block: updatedBlock });
+  }
+
+  // Send feedback if necessary
+  if (responsePayload && client) {
+    client.publish(`${username}/focus/count`, responsePayload);
+  }
+}
+
+/**
+ * Fetches initial device and block list data.
+ */
+async function syncInitialState() {
+  try {
+    const { deviceId } = await chrome.storage.local.get('deviceId');
+    
+    if (!deviceId) {
+      const id = await sendToServer('GET', '/device/get');
+      if (id) await chrome.storage.local.set({ deviceId: id });
+    }
+
+    const listData = await sendToServer('GET', '/url/list');
+    if (listData?.block) {
+      await chrome.storage.local.set({ urlMutex: 'mqtt', block: listData.block });
+    }
+  } catch (err) {
+    console.warn('Sync failed:', err);
+  }
 }

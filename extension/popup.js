@@ -124,6 +124,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // Handle absoluteFocusmode changes
     if (changes.absoluteFocusmode) {
+      console.log(changes.absoluteFocusmode.newValue);
+
       focusMode = changes.absoluteFocusmode.newValue;
       btn.classList.toggle("active", focusMode);
       btn.textContent = btn.classList.contains("active") ? "Focusing..." : "Focus";

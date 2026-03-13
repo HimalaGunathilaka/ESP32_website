@@ -46,7 +46,7 @@ async function enableRedirectRules(block = []) {
  * Scans all open tabs and redirects those that match the block list.
  * @param {string[]} block List of URL patterns to block.
  */
-async function redirectCurrentTab(block = []) {
+async function redirectCurrentTabs(block = []) {
     if (block.length === 0) return;
 
     const tabs = await chrome.tabs.query({ windowType: 'normal' });
