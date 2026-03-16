@@ -122,7 +122,7 @@ async function handleAddRemoveSite() {
   renderBlockedIcons(updatedBlockList);
 }
 
-function handleStorageChanges(changes, area) {
+async function handleStorageChanges(changes, area) {
   if (area !== 'local') return;
 
   if (changes.isLogged || changes.username) {
@@ -231,7 +231,7 @@ async function updateTimerUI() {
 
   if (absoluteFocusMode && start) {
     currentSessionSecs = Math.floor((Date.now() - start) / 1000);
-    totalSecs += currentSessionSecs;
+    totalSecs = sessionCount * sessionTime * 60;
 
     // Update circular progress
     const maxTime = sessionTime * 60;
@@ -363,7 +363,7 @@ async function fetchDeviceId() {
 
     clearTimeout(timeoutId);
     if (!resp.ok) throw new Error('Network response was not ok');
-    
+
     const data = await resp.json();
     return data.device_id;
   } catch (err) {

@@ -10,7 +10,7 @@
     absoluteFocusMode: false, 
     total_time: 0, 
     start: 0,
-    date: new Date().toISOString(),
+    date: new Date().toLocaleDateString('en-CA'),
     block: [],
     urlMutex: 'none',
     source: false,
