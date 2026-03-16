@@ -7,7 +7,7 @@
   // 1. Define all default values in one clear object
   const DEFAULTS = {
     focusMode: false,
-    absoluteFocusmode: false, 
+    absoluteFocusMode: false, 
     total_time: 0, 
     start: 0,
     date: new Date().toISOString(),

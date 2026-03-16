@@ -2,7 +2,10 @@
  * @fileoverview Manages MQTT connectivity and message routing for focus sessions.
  */
 
-let client = null;
+import { sendTo_server } from './serverLogic.js';
+import mqtt from "../libs/mqtt.esm.js";
+
+export let client = null;
 const MQTT_CONFIG = {
   host: 'localhost',
   port: 9001,
@@ -13,6 +16,8 @@ const MQTT_CONFIG = {
 
 /**
  * Main entry point for MQTT. Ensures only one connection exists.
+ * 
+ * @returns 
  */
 async function initializeMQTT() {
   const { username, isLogged, token } = await chrome.storage.local.get([
@@ -44,6 +49,19 @@ async function initializeMQTT() {
   setupEventHandlers(username);
 }
 
+/** 
+ * Initializes MQTT and handles potential errors. 
+ * 
+ */
+export function safeMQTTInit() {
+  try {
+    initializeMQTT();
+  } catch (err) {
+    console.warn('MQTT initialization failed (non-critical):', err);
+  }
+}
+
+
 /**
  * Attaches handlers to the MQTT client.
  * @param {string} username The current user's handle.
@@ -54,7 +72,7 @@ function setupEventHandlers(username) {
   client.on('connect', async () => {
     console.log('MQTT: Connected to broker');
     client.subscribe(`${username}/focus/#`);
-    
+
     // Sync initial state from server
     await syncInitialState();
   });
@@ -63,7 +81,7 @@ function setupEventHandlers(username) {
     const message = payload.toString();
     // Fetch all needed state once per message
     const state = await chrome.storage.local.get(['sessionCount', 'urlMutex', 'block']);
-    
+
     handleIncomingMessage(topic, message, state, username);
   });
 
@@ -77,6 +95,12 @@ function setupEventHandlers(username) {
 
 /**
  * Logic for handling specific MQTT topics.
+ * 
+ * @param {string} topic 
+ * @param {string} payload 
+ * @param {object} state 
+ * @param {string} username 
+ * @returns 
  */
 async function handleIncomingMessage(topic, payload, state, username) {
   const { sessionCount, urlMutex, block = [] } = state;
@@ -88,9 +112,9 @@ async function handleIncomingMessage(topic, payload, state, username) {
     const parts = payload.split('|');
     const receivedCount = parseInt(parts[1] || parts[2]);
 
-    await chrome.storage.local.set({ 
-      focusSource: 'mqtt', 
-      focusMode: isActivating 
+    await chrome.storage.local.set({
+      focusSource: 'mqtt',
+      focusMode: isActivating
     });
 
     if (!isNaN(receivedCount)) {
@@ -135,13 +159,13 @@ async function handleIncomingMessage(topic, payload, state, username) {
 async function syncInitialState() {
   try {
     const { deviceId } = await chrome.storage.local.get('deviceId');
-    
+
     if (!deviceId) {
-      const id = await sendToServer('GET', '/device/get');
+      const id = await sendTo_server('GET', '/device/get');
       if (id) await chrome.storage.local.set({ deviceId: id });
     }
 
-    const listData = await sendToServer('GET', '/url/list');
+    const listData = await sendTo_server('GET', '/url/list');
     if (listData?.block) {
       await chrome.storage.local.set({ urlMutex: 'mqtt', block: listData.block });
     }
