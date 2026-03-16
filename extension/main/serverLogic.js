@@ -3,6 +3,8 @@
  * and the ESP32 device.
  */
 
+const SERVER_BASE = "http://localhost:8080";
+
 /**
  * Generic fetch wrapper for server communication.
  * @param {string} method HTTP verb (GET, POST, etc.)
@@ -10,7 +12,7 @@
  * @param {Object} [payload] Data to send in the body
  * @returns {Promise<any|null>} Response data or null on failure
  */
-async function sendTo_server(method, endpoint, payload) {
+export async function sendTo_server(method, endpoint, payload) {
     try {
         const { token, isLogged } = await chrome.storage.local.get(['token', 'isLogged']);
 
@@ -65,7 +67,7 @@ async function sendTo_server(method, endpoint, payload) {
  * Communicates with the local ESP32 device to retrieve hardware info.
  * Includes a timeout to prevent the service worker from hanging.
  */
-async function fetchDeviceId() {
+export async function fetchDeviceId() {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 3000);
 

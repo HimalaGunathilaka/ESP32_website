@@ -1,25 +1,9 @@
 
-importScripts(
-    'libs/mqtt.min.js',
-    'main/init.js',
-    'main/redirect.js',
-    'main/mqtt.js',
-    'main/listeners.js',
-    'main/icon.js',
-    'main/serverLogic.js'
-);
-
-const SERVER_BASE = "http://localhost:8080";
-const COOLOFF_TIME = 5000;
-
-/** Initializes MQTT and handles potential errors. */
-function safeMQTTInit() {
-    try {
-        initializeMQTT();
-    } catch (err) {
-        console.warn('MQTT initialization failed (non-critical):', err);
-    }
-}
+import { sendTo_server } from './main/serverLogic.js';
+import './main/init.js';
+import { safeMQTTInit, client } from './main/mqtt.js';
+import './main/listeners.js';
+import './main/icon.js';
 
 // Initial trigger
 safeMQTTInit();
@@ -64,7 +48,7 @@ async function handleSessionCompletion() {
             date: today
         }),
         achieveSession(),
-        sendToServer('POST', '/session/complete', { sessionCount: newCount })
+        sendTo_server('POST', '/session/complete', { sessionCount: newCount })
     ]);
 }
 
@@ -81,7 +65,6 @@ async function achieveSession() {
         naturalCompletion: true,
         focusMode: false
     });
-    sessionSrc = true;
 }
 
 

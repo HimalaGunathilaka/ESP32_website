@@ -1,44 +1,46 @@
 {
-    "manifest_version": 3,
-    "name": "MQTT Test Extension",
-    "version": "1.0",
-    "description": "Test Mosquitto via Paho MQTT over WebSockets",
-    "action": {
-        "default_popup": "popup.html",
-        "default_icon": {
-            "16": "icons/icon16.png",
-            "32": "icons/icon32.png",
-            "48": "icons/icon48.png",
-            "128": "icons/icon128.png"
-        }
-    },
-    "permissions": [
-        "tabs",
-        "storage",
-        "declarativeNetRequest",
-        "declarativeNetRequestWithHostAccess",
-        "alarms"
-    ],
-    "declarative_net_request": {
-        "rule_resources": []
-    },
-    "host_permissions": [
-        "<all_urls>",
-        "ws://localhost:9001/*",
-        "wss://localhost:9001/*"
-    ],
-    "web_accessible_resources": [
-        {
-            "resources": [
-                "focus.html",
-                "login.html"
-            ],
-            "matches": [
-                "<all_urls>"
-            ]
-        }
-    ],
-    "background": {
-        "service_worker": "main.js"
+  "manifest_version": 3,
+  "name": "Focus Flow & Tea Monitor",
+  "version": "1.0.0",
+  "description": "Integrated focus timer and Sri Lankan tea withering monitor.",
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
     }
+  },
+  "permissions": [
+    "tabs",
+    "storage",
+    "declarativeNetRequest",
+    "alarms",
+    "notifications" 
+  ],
+  "host_permissions": [
+    "http://localhost:8080/*",
+    "http://esp32.local/*"
+  ],
+  "background": {
+    "service_worker": "main.js",
+    "type": "module"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "focus.html",
+        "login.html",
+        "libs/*.js",
+        "picture.jpg"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
+    }
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' ws://localhost:9001 http://localhost:8080 http://esp32.local"
+  }
 }

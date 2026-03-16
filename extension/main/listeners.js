@@ -3,16 +3,22 @@
  * Acts as the central coordinator for UI, MQTT, and Blocking logic.
  */
 
+import { safeMQTTInit, client } from "./mqtt.js";
+import { enableRedirectRules, redirectCurrentTabs, clearAllRedirectRules } from '../main/redirect.js';
+import { handleTabChange_icon } from "./icon.js";
+
+const COOLOFF_TIME = 5000;
+
 chrome.storage.onChanged.addListener(async (changes, area) => {
     if (area !== 'local') return;
 
     // 1. Batch fetch current state to minimize async overhead
     const state = await chrome.storage.local.get([
-        'username', 'absoluteFocusmode', 'focusMode', 'focusSource',
+        'username', 'absoluteFocusMode', 'focusMode', 'focusSource',
         'sessionCount', 'sessionTime', 'sessionComplete', 'urlMutex', 'block', 'start'
     ]);
 
-    const { username, absoluteFocusmode, urlMutex, block = [] } = state;
+    const { username, absoluteFocusMode, urlMutex, block = [] } = state;
 
     // ----------------------------------------------------------
     // AUTHENTICATION & CONNECTION
@@ -20,7 +26,7 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
     if (changes.isLogged) {
         if (changes.isLogged.newValue) {
             await chrome.storage.local.set({ date: new Date().toISOString() });
-            initializeMQTT();
+            safeMQTTInit();
             chrome.alarms.create('mqttPing', { periodInMinutes: 0.5 });
         } else if (typeof client !== 'undefined' && client) {
             client.end(false);
@@ -41,7 +47,7 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
             await syncBlockListToMqtt(changes.block.oldValue || [], changes.block.newValue || [], username);
         }
 
-        if (absoluteFocusmode) await redirectCurrentTabs(block);
+        if (absoluteFocusMode) await redirectCurrentTabs(block);
     }
 
     // ----------------------------------------------------------
@@ -51,11 +57,11 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
 
         await handleFocusModeToggle(changes.focusMode.newValue, state);
     }
-    
+
     // ----------------------------------------------------------
     // SESSION ALARMS
-    if (changes.absoluteFocusmode) {
-        const isEnabled = changes.absoluteFocusmode.newValue;
+    if (changes.absoluteFocusMode) {
+        const isEnabled = changes.absoluteFocusMode.newValue;
         if (isEnabled) {
             chrome.alarms.create('focusSessionEnd', { delayInMinutes: state.sessionTime });
         } else if (!state.sessionComplete) {
@@ -68,16 +74,16 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
  * Handles the logic when focus mode is turned on or off.
  */
 async function handleFocusModeToggle(isStarting, state) {
-    const { username, sessionCount, start, absoluteFocusmode, block } = state;
+    const { username, sessionCount, start, absoluteFocusMode, block } = state;
     const now = Date.now();
 
-    if (isStarting && !absoluteFocusmode) {
+    if (isStarting && !absoluteFocusMode) {
         // START FOCUS
         const startTime = start === 0 ? now : start;
         await chrome.storage.local.set({
             start: startTime,
             date: new Date().toISOString(),
-            absoluteFocusmode: true
+            absoluteFocusMode: true
         });
 
         await enableRedirectRules(block);
@@ -85,16 +91,16 @@ async function handleFocusModeToggle(isStarting, state) {
 
         publishMqtt(username, 'activate', `a|${sessionCount}`);
 
-    } else if (!isStarting && absoluteFocusmode) {
+    } else if (!isStarting && absoluteFocusMode) {
         // STOP FOCUS (with Cool-off check)
         if (now - start < COOLOFF_TIME) {
             // Revert if too soon
-            await chrome.storage.local.set({ focusMode: true, absoluteFocusmode: true });
+            await chrome.storage.local.set({ focusMode: true, absoluteFocusMode: true });
             return;
         }
 
         await clearAllRedirectRules();
-        await chrome.storage.local.set({ absoluteFocusmode: false, focusMode: false, start: 0 });
+        await chrome.storage.local.set({ absoluteFocusMode: false, focusMode: false, start: 0 });
 
         const status = state.sessionComplete ? 'c' : 'n';
         publishMqtt(username, 'activate', `d|${status}|${sessionCount}`);

@@ -10,7 +10,7 @@ const REDIRECT_RULE_BASE_ID = 1000; // base id to avoid collisions
  * @param {string[]} block List of URL patterns to block.
  */
 
-async function enableRedirectRules(block = []) {
+export async function enableRedirectRules(block = []) {
     await clearAllRedirectRules();
 
     if (block.length === 0) return;
@@ -46,7 +46,7 @@ async function enableRedirectRules(block = []) {
  * Scans all open tabs and redirects those that match the block list.
  * @param {string[]} block List of URL patterns to block.
  */
-async function redirectCurrentTabs(block = []) {
+export async function redirectCurrentTabs(block = []) {
     if (block.length === 0) return;
 
     const tabs = await chrome.tabs.query({ windowType: 'normal' });
@@ -67,7 +67,7 @@ async function redirectCurrentTabs(block = []) {
 /**
  * Remove all the dynamic rules created by this extension.
  */
-async function clearAllRedirectRules() {
+export async function clearAllRedirectRules() {
     const rules = await chrome.declarativeNetRequest.getDynamicRules();
     const ids = rules.map(r => r.id);
     if (ids.length) {

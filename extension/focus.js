@@ -1,22 +1,29 @@
+/**
+ * @fileoverview Manages the focus timer display for the focus page.
+ */
+
+
+/**
+ * Get the number of sessions from local storage.
+ */
 async function updateTimer() {
-  const { absoluteFocusmode, sessionCount = 0, sessionTime } =
+  const { absoluteFocusMode, sessionCount = 0, sessionTime } =
     await chrome.storage.local.get([
-      "absoluteFocusmode",
+      "absoluteFocusMode",
       "sessionCount",
       "sessionTime"
-      // "total_time",
-      // "start"
     ]);
 
-  let secs = 0;
-
-  if (absoluteFocusmode) {
+  if (absoluteFocusMode) {
     mins = sessionCount * sessionTime;
     renderTime(mins);
   }
-
 }
 
+/**
+ * 
+ * @param {BigInteger} mins 
+ */
 function renderTime(mins) {
   const hours = Math.floor(mins / 60);
   const minutes = mins % 60;

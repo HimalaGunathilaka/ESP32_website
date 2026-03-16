@@ -22,7 +22,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
  * Updates the extension icon based on the active tab's domain.
  */
 
-async function handleTabChange_icon() {
+export async function handleTabChange_icon() {
     try {
         const [tab] = await chrome.tabs.query({
             active: true,

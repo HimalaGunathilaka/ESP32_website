@@ -1,567 +1,373 @@
-let focusMode = false;
-
-const SERVER_BASE = "http://localhost:8080";
-
-// -------------------- Toggle focus --------------------
-async function focus() {
-  // Always read current storage value to avoid sync issues
-  const { focusMode: current } = await chrome.storage.local.get("focusMode");
-  // console.log("Current focusMode:", current, "-> Setting to:", !current);
-  await chrome.storage.local.set({ focusMode: !current });
-}
-
-// Display image only when try to deactivate focus while in cool off
-function displayImage(show) {
-  const img = document.getElementById("pict");
-  img.style.display = show ? "block" : "none";
-}
-
-// -----Get hostname of active tab-----------
-async function getActiveHostname() {
-  const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-  const url = tabs[0]?.url;
-  if (!url) return null;
-
-  return new URL(url).hostname;
-}
-
-// HTML objects
-
-const addBtn = document.getElementById("addBtn");
-const btn = document.getElementById("focusBtn");
-const iconContainer = document.getElementById("iconList");
-const tooltip = document.getElementById("addTooltip");
-const userBtn = document.getElementById("topLeftBtn");
-const espBtn = document.getElementById("espBtn");
+/**
+ * @fileoverview Main logic for the extension's popup UI.
+ * Handles timers, block list rendering, hardware sync, and view switching.
+ */
 
 
-// -------------------- Init popup --------------------
-document.addEventListener("DOMContentLoaded", async () => {
+// ============================================================================
+// Constants & UI Element Cache
+// ============================================================================
+
+const SERVER_BASE = 'http://localhost:8080';
+const CIRCUMFERENCE = 534.07;
+
+// Cache DOM elements to avoid querying the DOM repeatedly
+const UI = {
+  mainView: document.getElementById('view-main'),
+  urlView: document.getElementById('view-url'),
+  btnToggleView: document.getElementById('topRightBtn'),
+  btnUser: document.getElementById('topLeftBtn'),
+  btnFocus: document.getElementById('focusBtn'),
+  btnAdd: document.getElementById('addBtn'),
+  btnEsp: document.getElementById('espBtn'),
+  iconContainer: document.getElementById('iconList'),
+  tooltip: document.getElementById('addTooltip'),
+  timerLabel: document.getElementById('timer'),
+  totalTimeLabel: document.getElementById('totalTime'),
+  progressCircle: document.getElementById('progressCircle'),
+  pict: document.getElementById('pict')
+};
+
+// Global State
+let isShowingMainView = true;
+let tooltipTimeout = null;
+let timerInterval = null;
+
+// ============================================================================
+// Initialization
+// ============================================================================
+
+document.addEventListener('DOMContentLoaded', async () => {
+  setupEventListeners();
+
+  // Fetch initial system truth in one batch
+  const state = await chrome.storage.local.get([
+    'absoluteFocusMode', 'isLogged', 'username', 'naturalCompletion', 'block', 'sessionTime'
+  ]);
+
+  // Initialize UI based on state
+  updateAuthUI(state.isLogged, state.username);
+  updateFocusUI(state.absoluteFocusMode);
+
   const hostname = await getActiveHostname();
-  // const { deviceConnected } = await chrome.storage.local.get("deviceConnected");
-  const { isLogged } = await chrome.storage.local.get("isLogged");
+  updateAddButtonUI(hostname, state.block || []);
+  renderBlockedIcons(state.block || []);
 
-  if (isLogged) {
-    espBtn.style.visibility = "visible";
-  } else {
-    espBtn.style.visibility = "hidden";
-
+  if (state.naturalCompletion) {
+    celebrateSession();
+    await chrome.storage.local.set({ naturalCompletion: false });
   }
 
-  // espBtn.textContent = deviceConnected ? "Connected" : "Disconnected"
-
-  // if (deviceConnected) { espBtn.classList.add("active"); } else { espBtn.classList.remove("active"); }
-
-
-  // Read SYSTEM TRUTH
-  chrome.storage.local.get(["absoluteFocusmode", "isLogged", "username", "naturalCompletion"], (data) => {
-    const active = data.absoluteFocusmode ?? false;
-    focusMode = active;
-    btn.classList.toggle("active", active);
-    btn.textContent = btn.classList.contains("active") ? "Focusing..." : "Focus";
-
-    const circle = document.getElementById("progressCircle");
-    if (circle) {
-      circle.classList.toggle("active", active);
-    }
-
-    // Check if user is already logged in
-    if (data.isLogged && data.username) {
-      userBtn.textContent = data.username;
-      userBtn.classList.add("active");
-    } else {
-      userBtn.classList.remove("active");
-    }
-
-    // Check for pending celebration when popup opens
-    if (data.naturalCompletion) {
-      console.log("Popup opened with pending celebration!");
-      celebrateSession();
-      chrome.storage.local.set({ naturalCompletion: false });
-    }
-  });
-
-  // React to changes (popup stays in sync)
-  chrome.storage.onChanged.addListener(async (changes, area) => {
-    if (area !== "local") return;
-
-    // if (changes.deviceConnected) {
-    //   if (!changes.deviceConnected.newValue) {
-    //     espBtn.classList.remove("active");
-    //     espBtn.textContent = "Disconnected";
-    //   } else {
-    //     espBtn.classList.add("active");
-    //     espBtn.textContent = "Connected";
-    //   }
-    // }
-
-
-    if (changes.isLogged) {
-      if (changes.isLogged.newValue) {
-        const { username } = await chrome.storage.local.get("username");
-        userBtn.textContent = username;
-
-        console.log(username);
-
-      }
-    }
-
-    if (changes.sessionTime) {
-      // Immediately update progress bar with new session time
-      updateTimer();
-    }
-
-    // Celebrate when naturalCompletion flag is set to true
-    if (changes.naturalCompletion) {
-      console.log("naturalCompletion changed to:", changes.naturalCompletion.newValue);
-      if (changes.naturalCompletion.newValue === true) {
-        console.log("Triggering celebration!");
-        celebrateSession();
-        // Reset the flag after celebration
-        await chrome.storage.local.set({ naturalCompletion: false });
-      }
-    }
-
-    // Handle absoluteFocusmode changes
-    if (changes.absoluteFocusmode) {
-      console.log(changes.absoluteFocusmode.newValue);
-
-      focusMode = changes.absoluteFocusmode.newValue;
-      btn.classList.toggle("active", focusMode);
-      btn.textContent = btn.classList.contains("active") ? "Focusing..." : "Focus";
-
-      const circle = document.getElementById("progressCircle");
-      if (circle) {
-        circle.classList.toggle("active", focusMode);
-
-        // Reset progress bar when focus ends
-        if (!focusMode) {
-          circle.style.strokeDashoffset = 534.07; // Reset to 0%
-        }
-      }
-
-      if (focusMode) {
-        await chrome.storage.local.set({ start: Date.now() });
-      } else {
-        displayImage(false);
-        await chrome.storage.local.set({ start: 0 });
-
-      }
-    }
-
-    // Handle focusMode changes - display image when trying to deactivate during cooloff
-    if (changes.focusMode && changes.focusMode.newValue === true) {
-      chrome.storage.local.get("absoluteFocusmode", ({ absoluteFocusmode }) => {
-        if (absoluteFocusmode === true) {
-          displayImage(true);
-        }
-      });
-    }
-  });
-
-  btn.addEventListener("click", async () => {
-    focus(); // request change only
-    await chrome.storage.local.set({ focusSource: "local" });
-  });
-
-
-
-  chrome.storage.local.get("block", (data) => {
-    const blocked = data.block ?? [];
-
-    // Toggle button state
-    const isBlocked = blocked.includes(hostname);
-    addBtn.classList.toggle("tag", isBlocked);
-    addBtn.textContent = isBlocked ? "Remove" : "Add";
-
-    // Render icons
-    renderBlockedIcons(blocked, iconContainer);
-  });
-
-  addBtn.addEventListener("click", async () => {
-    // Check if focus mode is active
-    const { absoluteFocusmode } = await chrome.storage.local.get("absoluteFocusmode");
-    if (absoluteFocusmode) {
-      clear_tooltipTimers();
-      tooltip.classList.add("show");
-      tooltipTimer_show = setTimeout(() => tooltip.classList.remove("show"), 2000);
-      return;
-    }
-
-    const hostname = await getActiveHostname();
-    if (!hostname) return;
-
-    // console.log("Website entered:", hostname);
-
-    chrome.storage.local.get("block", (data) => {
-      const blocked = data.block ?? [];
-
-      if (!blocked.includes(hostname)) {
-        blocked.push(hostname);
-
-        // Send link to server
-        sendTo_server("POST", "/url/add", { url: hostname });
-
-        chrome.storage.local.set({ block: blocked }, () => {
-          // Tooltip
-          clear_tooltipTimers();
-
-          tooltip.classList.add("add");
-          tooltip.textContent = `"${hostname}" is added!`
-          tooltipTimer_add = setTimeout(() => tooltip.classList.remove("add"), 2000);
-          // console.log("Updated block list:", blocked);
-        });
-        addBtn.classList.toggle("tag", true);
-        addBtn.textContent = "Remove";
-      } else {
-        const index = blocked.indexOf(hostname);
-        blocked.splice(index, 1);
-
-        // Send link to be removed to server
-        sendTo_server("POST", "/url/remove", { url: hostname });
-
-
-        chrome.storage.local.set({ block: blocked }, () => {
-          // console.log("Removed from block list:", blocked);
-          // Tooltip
-          clear_tooltipTimers();
-
-          tooltip.classList.add("remove");
-          tooltip.textContent = `"${hostname}" is removed!`
-          tooltipTimer_remove = setTimeout(() => tooltip.classList.remove("remove"), 2000);
-        });
-        addBtn.classList.toggle("tag", false);
-        addBtn.textContent = "Add";
-      }
-
-      // Re-render icons
-      renderBlockedIcons(blocked, iconContainer);
-    });
-
-  });
-
-  userBtn.addEventListener("click", async () => {
-    chrome.tabs.create({ url: chrome.runtime.getURL("login.html") });
-  });
-
-  espBtn.addEventListener("click", async () => {
-    const deviceId = await fetchDeviceId();
-    if (!deviceId) return;
-
-    await chrome.storage.local.set({ deviceId });
-    // await chrome.storage.local.set({ deviceConnected: true });
-
-    await sendTo_server("POST", "/device/put", { deviceId });
-    espBtn.textContent = "Connected";
-    espBtn.classList.add("active");
-  });
-
+  // Start the UI timer loop
+  updateTimerUI();
+  timerInterval = setInterval(updateTimerUI, 1000);
 });
 
-// -------------------- Timer (UI only) --------------------
-async function updateTimer() {
-  const { absoluteFocusmode, sessionCount, sessionTime, start } =
-    await chrome.storage.local.get([
-      "absoluteFocusmode",
-      "sessionCount",
-      "sessionTime",
-      "start"
-    ]);
+// ============================================================================
+// Event Listeners
+// ============================================================================
 
-  // Calculate total time from completed sessions
+function setupEventListeners() {
+  // View toggles
+  UI.btnToggleView.addEventListener('click', toggleView);
+
+  // Primary actions
+  UI.btnFocus.addEventListener('click', handleFocusToggle);
+  UI.btnAdd.addEventListener('click', handleAddRemoveSite);
+  UI.btnUser.addEventListener('click', () => chrome.tabs.create({ url: chrome.runtime.getURL('login.html') }));
+  UI.btnEsp.addEventListener('click', handleEspConnection);
+
+  // Storage listener (Registered ONCE at the top level)
+  chrome.storage.onChanged.addListener(handleStorageChanges);
+}
+
+// ============================================================================
+// Core Logic Handlers
+// ============================================================================
+
+async function handleFocusToggle() {
+  const { focusMode } = await chrome.storage.local.get('focusMode');
+  await chrome.storage.local.set({
+    focusMode: !focusMode,
+    focusSource: 'local'
+  });
+}
+
+async function handleAddRemoveSite() {
+  const { absoluteFocusMode, block = [] } = await chrome.storage.local.get(['absoluteFocusMode', 'block']);
+
+  if (absoluteFocusMode) {
+    showTooltip("Can't edit while focusing", 'show');
+    return;
+  }
+
+  const hostname = await getActiveHostname();
+  if (!hostname) return;
+
+  const isBlocked = block.includes(hostname);
+  let updatedBlockList;
+
+  if (isBlocked) {
+    updatedBlockList = block.filter(site => site !== hostname);
+    sendToServer('POST', '/url/remove', { url: hostname });
+    showTooltip(`"${hostname}" removed!`, 'remove');
+  } else {
+    updatedBlockList = [...block, hostname];
+    sendToServer('POST', '/url/add', { url: hostname });
+    showTooltip(`"${hostname}" added!`, 'add');
+  }
+
+  await chrome.storage.local.set({ block: updatedBlockList });
+  updateAddButtonUI(hostname, updatedBlockList);
+  renderBlockedIcons(updatedBlockList);
+}
+
+function handleStorageChanges(changes, area) {
+  if (area !== 'local') return;
+
+  if (changes.isLogged || changes.username) {
+    chrome.storage.local.get(['isLogged', 'username'], (data) => {
+      updateAuthUI(data.isLogged, data.username);
+    });
+  }
+
+  if (changes.absoluteFocusMode) {
+    updateFocusUI(changes.absoluteFocusMode.newValue);
+    if (changes.absoluteFocusMode.newValue) {
+      chrome.storage.local.set({ start: Date.now() });
+    } else {
+      UI.pict.style.display = 'none';
+      chrome.storage.local.set({ start: 0 });
+    }
+  }
+
+  if (changes.focusMode?.newValue === true) {
+    chrome.storage.local.get('absoluteFocusMode', ({ absoluteFocusMode }) => {
+      if (absoluteFocusMode) UI.pict.style.display = 'block';
+    });
+  }
+
+  if (changes.sessionTime) {
+    updateTimerUI();
+  }
+
+  if (changes.naturalCompletion?.newValue === true) {
+    celebrateSession();
+    chrome.storage.local.set({ naturalCompletion: false });
+  }
+}
+
+async function handleEspConnection() {
+  UI.btnEsp.textContent = 'Connecting...';
+  const deviceId = await fetchDeviceId();
+
+  if (deviceId) {
+    await chrome.storage.local.set({ deviceId });
+    await sendToServer('POST', '/device/put', { deviceId });
+    UI.btnEsp.textContent = 'Connected';
+    UI.btnEsp.classList.add('active');
+  } else {
+    UI.btnEsp.textContent = 'Failed';
+    setTimeout(() => UI.btnEsp.textContent = 'Disconnected', 2000);
+  }
+}
+
+// ============================================================================
+// UI Updaters
+// ============================================================================
+
+function toggleView() {
+  isShowingMainView = !isShowingMainView;
+  UI.mainView.classList.toggle('view-active', isShowingMainView);
+  UI.urlView.classList.toggle('view-active', !isShowingMainView);
+  UI.btnToggleView.textContent = isShowingMainView ? 'Blocked List' : 'Settings';
+}
+
+function updateAuthUI(isLogged, username) {
+  if (isLogged && username) {
+    UI.btnUser.textContent = username;
+    UI.btnUser.classList.add('active');
+    UI.btnEsp.style.visibility = 'visible';
+  } else {
+    UI.btnUser.textContent = 'Guest';
+    UI.btnUser.classList.remove('active');
+    UI.btnEsp.style.visibility = 'hidden';
+  }
+}
+
+function updateFocusUI(isActive) {
+  UI.btnFocus.classList.toggle('active', isActive);
+  UI.btnFocus.textContent = isActive ? 'Focusing...' : 'Focus';
+  if (UI.progressCircle) {
+    UI.progressCircle.classList.toggle('active', isActive);
+    if (!isActive) UI.progressCircle.style.strokeDashoffset = CIRCUMFERENCE;
+  }
+}
+
+function updateAddButtonUI(hostname, blockList) {
+  const isBlocked = blockList.includes(hostname);
+  UI.btnAdd.classList.toggle('tag', isBlocked);
+  UI.btnAdd.textContent = isBlocked ? 'Remove' : 'Add';
+}
+
+function showTooltip(text, cssClass) {
+  clearTimeout(tooltipTimeout);
+  UI.tooltip.className = 'tooltip'; // Reset classes
+
+  UI.tooltip.textContent = text;
+  UI.tooltip.classList.add(cssClass);
+
+  tooltipTimeout = setTimeout(() => {
+    UI.tooltip.classList.remove(cssClass);
+  }, 2000);
+}
+
+async function updateTimerUI() {
+  const { absoluteFocusMode, sessionCount = 0, sessionTime = 2, start } =
+    await chrome.storage.local.get(['absoluteFocusMode', 'sessionCount', 'sessionTime', 'start']);
+
   let totalSecs = sessionCount * sessionTime * 60;
   let currentSessionSecs = 0;
 
-  if (absoluteFocusmode) {
-    // Current session progress
+  if (absoluteFocusMode && start) {
     currentSessionSecs = Math.floor((Date.now() - start) / 1000);
     totalSecs += currentSessionSecs;
 
-    // Progress bar shows ONLY current session progress
-    await renderTime(currentSessionSecs);
-  } else {
-    // When not focusing, ensure circle is reset to 0%
-    const circle = document.getElementById("progressCircle");
-    if (circle) {
-      circle.style.strokeDashoffset = 534.07;
+    // Update circular progress
+    const maxTime = sessionTime * 60;
+    const progress = Math.min(currentSessionSecs / maxTime, 1);
+    if (UI.progressCircle) {
+      UI.progressCircle.style.strokeDashoffset = CIRCUMFERENCE * (1 - progress);
     }
   }
 
-  // Always display total time (whether focusing or not)
-  renderTotalTime(totalSecs);
+  // Update text labels
+  UI.timerLabel.textContent = formatTime(currentSessionSecs);
+  UI.totalTimeLabel.textContent = `Total: ${formatTime(totalSecs)}`;
 }
 
-// ++++++++++++++++++++++++++++++++++++++++++++++
-// This part has the circular progress bar as well
-// ++++++++++++++++++++++++++++++++++++++++++++++
-async function renderTime(currentSessionSecs) {
-  const hours = Math.floor(currentSessionSecs / 3600);
-  const minutes = Math.floor((currentSessionSecs % 3600) / 60);
-  const seconds = currentSessionSecs % 60;
+function renderBlockedIcons(blockedList) {
+  UI.iconContainer.innerHTML = '';
 
-  document.getElementById("timer").textContent =
-    `${String(hours).padStart(2, "0")}h : ` +
-    `${String(minutes).padStart(2, "0")}min`;
+  blockedList.forEach(site => {
+    const btn = document.createElement('button');
+    btn.className = 'blocked-site-btn';
+    btn.title = site;
 
-  // Update circular progress bar based on CURRENT session only
-  const { sessionTime } = await chrome.storage.local.get("sessionTime");
-  const maxTime = sessionTime * 60; // sessionTime is in minutes, convert to seconds
-  const progress = Math.min(currentSessionSecs / maxTime, 1); // Cap at 100%
-  const circumference = 534.07;
-  const offset = circumference * (1 - progress);
-
-  const circle = document.getElementById("progressCircle");
-  if (circle) {
-    circle.style.strokeDashoffset = offset;
-  }
-}
-
-
-updateTimer();
-setInterval(updateTimer, 1000); // Runs every second
-
-function renderTotalTime(secs) {
-  const hours = Math.floor(secs / 3600);
-  const minutes = Math.floor((secs % 3600) / 60);
-
-  const el = document.getElementById("totalTime");
-  if (el) {
-    el.textContent = `Total: ${String(hours).padStart(2, "0")}h : ${String(minutes).padStart(2, "0")}min`;
-  }
-}
-
-
-
-// // +++++++++++++++++++++++++++++++++++++++++++++
-// // Render icons of the websites in blocked list
-// // +++++++++++++++++++++++++++++++++++++++++++++
-function renderBlockedIcons(blocked, container) {
-  container.innerHTML = "";
-
-  blocked.forEach(site => {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.title = site;
-    button.className = "blocked-site-btn";
-
-    const img = document.createElement("img");
+    const img = document.createElement('img');
     img.src = `https://www.google.com/s2/favicons?sz=64&domain=${site}`;
     img.alt = site;
-    img.title = site;
     img.width = 32;
     img.height = 32;
 
-    // Create cross icon outside of click handler
-    const cross = document.createElement("img");
-    cross.src = "close.png";
-    cross.className = "remove-icon";
+    const cross = document.createElement('img');
+    cross.src = 'close.png';
+    cross.className = 'remove-icon';
 
-    button.appendChild(img);
-    button.appendChild(cross);
+    btn.append(img, cross);
 
-    // Click handler
-    button.addEventListener("click", async () => {
-      // console.log("Clicked:", site);
-      // Block the remove functionality if still in focusmode
-      const { absoluteFocusmode } = await chrome.storage.local.get("absoluteFocusmode");
-      if (absoluteFocusmode) {
-        clear_tooltipTimers();
-        tooltip.classList.add("show");
-        tooltipTimer_show = setTimeout(() => tooltip.classList.remove("show"), 2000);
+    btn.addEventListener('click', async () => {
+      const { absoluteFocusMode, block = [] } = await chrome.storage.local.get(['absoluteFocusMode', 'block']);
+
+      if (absoluteFocusMode) {
+        showTooltip("Can't edit while focusing", 'show');
         return;
       }
 
-      const { block = [] } = await chrome.storage.local.get("block");
+      const updatedBlockList = block.filter(s => s !== site);
+      await chrome.storage.local.set({ block: updatedBlockList });
+      sendToServer('POST', '/url/remove', { url: site });
 
-      const index = block.indexOf(site);
+      btn.remove();
+      showTooltip(`"${site}" removed!`, 'remove');
 
-      sendTo_server("POST", "/url/remove", { url: site });
+      const hostname = await getActiveHostname();
+      if (hostname === site) updateAddButtonUI(hostname, updatedBlockList);
+    });
 
-
-      if (index !== -1) {
-        block.splice(index, 1); // Remove from array
-        await chrome.storage.local.set({ block: block });
-      }
-
-
-      button.remove(); // Remove from DOM
-
-      // Tooltip
-      clear_tooltipTimers();
-      tooltip.classList.add("remove");
-      tooltip.textContent = `"${site}" is removed!`
-      tooltipTimer_remove = setTimeout(() => tooltip.classList.remove("remove"), 2000);
-
-      const activeHost = await getActiveHostname();
-
-      if (activeHost === site) {
-        addBtn.classList.toggle("tag", false);
-        addBtn.textContent = "Add";
-      }
-    })
-
-    container.appendChild(button);
-
+    UI.iconContainer.appendChild(btn);
   });
 }
 
-// ======================================================
-// Confetti
-// ======================================================
+// ============================================================================
+// Utilities & API
+// ============================================================================
+
+function formatTime(totalSeconds) {
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  return `${String(hours).padStart(2, '0')}h : ${String(minutes).padStart(2, '0')}min`;
+}
+
+async function getActiveHostname() {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  return tab?.url ? new URL(tab.url).hostname : null;
+}
 
 async function celebrateSession() {
-  if (typeof confetti === 'undefined') {
-    console.warn('confetti library not loaded');
-    return;
-  }
+  if (typeof confetti === 'undefined') return;
 
   const duration = 2000;
   const animationEnd = Date.now() + duration;
   const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 10000 };
 
-  function randomInRange(min, max) {
-    return Math.random() * (max - min) + min;
-  }
-
-  const interval = setInterval(function () {
+  const interval = setInterval(() => {
     const timeLeft = animationEnd - Date.now();
-
-    if (timeLeft <= 0) {
-      return clearInterval(interval);
-    }
+    if (timeLeft <= 0) return clearInterval(interval);
 
     const particleCount = 50 * (timeLeft / duration);
-
-    // Burst from left side
-    confetti({
-      ...defaults,
-      particleCount,
-      origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 }
-    });
-
-    // Burst from right side
-    confetti({
-      ...defaults,
-      particleCount,
-      origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 }
-    });
+    confetti({ ...defaults, particleCount, origin: { x: Math.random() * 0.2 + 0.1, y: Math.random() - 0.2 } });
+    confetti({ ...defaults, particleCount, origin: { x: Math.random() * 0.2 + 0.7, y: Math.random() - 0.2 } });
   }, 250);
 }
 
-
-
-// ================================================
-// Second view logic
-// ================================================
-const topRightBtn = document.getElementById("topRightBtn");
-const mainView = document.getElementById("view-main");
-const urlView = document.getElementById("view-url");
-
-let showingMainView = true;
-
-topRightBtn.addEventListener("click", () => {
-  if (showingMainView) {
-    mainView.classList.remove("view-active");
-    urlView.classList.add("view-active");
-    topRightBtn.textContent = "Blocked List"; // optional
-  } else {
-    urlView.classList.remove("view-active");
-    mainView.classList.add("view-active");
-    topRightBtn.textContent = "Blocked"; // optional
-  }
-
-  showingMainView = !showingMainView;
-});
-
-// ====================================================
-// Tool tip
-// ====================================================
-let tooltipTimer_show = null;
-let tooltipTimer_add = null;
-let tooltipTimer_remove = null;
-
-function clear_tooltipTimers() {
-  clearTimeout(tooltipTimer_add);
-  clearTimeout(tooltipTimer_remove);
-  clearTimeout(tooltipTimer_show);
-  // Also remove all tooltip classes to prevent color conflicts
-  tooltip.classList.remove("show", "add", "remove");
-}
-
-
-
-// =====================================
-// Server connection logic stuff
-// =====================================
-
-async function sendTo_server(method, endpoint, payload) {
+async function sendToServer(method, endpoint, payload) {
   try {
-    const { token, isLogged } = await chrome.storage.local.get([
-      "token",
-      "isLogged"
-    ]);
-
-    if (!isLogged || !token) {
-      console.warn("Not logged in – skipping server sync");
-      return null;
-    }
+    const { token, isLogged } = await chrome.storage.local.get(['token', 'isLogged']);
+    if (!isLogged || !token) return null;
 
     const res = await fetch(`${SERVER_BASE}${endpoint}`, {
-      method: method,
+      method,
       headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${token}`
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
       },
-      body: method !== "GET" ? JSON.stringify(
-        typeof payload === "string"
-          ? { value: payload }
-          : payload
-      ) : undefined
+      body: method !== 'GET' ? JSON.stringify(payload) : undefined
     });
 
     if (res.status === 401) {
-      console.warn("JWT expired or invalid");
       await chrome.storage.local.set({ isLogged: false });
       return null;
     }
 
-    if (!res.ok) {
-      console.error("Server error:", await res.text());
-      return null;
-    }
-
-    // Capture response form GET requests
-    if (method === "GET") {
-      const data = await res.json();
-      return data;
-    }
-
-    return true;
+    if (!res.ok) throw new Error(await res.text());
+    return method === 'GET' ? await res.json() : true;
   } catch (err) {
-    console.error("sendTo_server failed:", err);
+    console.error('Server sync failed:', err);
     return null;
   }
 }
 
-
-
 async function fetchDeviceId() {
-  const { username } = await chrome.storage.local.get("username");
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 4000); // Prevent hanging on flaky networks
+
   try {
-    const resp = await fetch("http://esp32.local/device-info", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        username: username
-      })
+    const { username } = await chrome.storage.local.get('username');
+    const resp = await fetch('http://esp32.local/device-info', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username }),
+      signal: controller.signal
     });
+
+    clearTimeout(timeoutId);
+    if (!resp.ok) throw new Error('Network response was not ok');
+    
     const data = await resp.json();
-    console.log("Device ID:", data.device_id);
     return data.device_id;
   } catch (err) {
-    console.error("Could not reach ESP32:", err);
+    console.error('Could not reach ESP32:', err.message);
     return null;
   }
 }
