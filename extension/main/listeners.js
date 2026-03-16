@@ -25,7 +25,7 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
     // ----------------------------------------------------------
     if (changes.isLogged) {
         if (changes.isLogged.newValue) {
-            await chrome.storage.local.set({ date: new Date().toISOString() });
+            await chrome.storage.local.set({ date: new Date().toLocaleDateString('en-CA') });
             safeMQTTInit();
             chrome.alarms.create('mqttPing', { periodInMinutes: 0.5 });
         } else if (typeof client !== 'undefined' && client) {
@@ -82,7 +82,7 @@ async function handleFocusModeToggle(isStarting, state) {
         const startTime = start === 0 ? now : start;
         await chrome.storage.local.set({
             start: startTime,
-            date: new Date().toISOString(),
+            date: new Date().toLocaleDateString('en-CA'),
             absoluteFocusMode: true
         });
 

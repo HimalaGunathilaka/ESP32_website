@@ -31,10 +31,12 @@ chrome.alarms.onAlarm.addListener(async (alaram) => {
  * Processes the end of a focus session, updates storage, and syncs with server.
  */
 async function handleSessionCompletion() {
-    const today = new Date().toString();
+    const today = new Date().toLocaleDateString('en-CA');
     const data = await chrome.storage.local.get(['sessionCount', 'date']);
 
     let count = data.sessionCount || 0;
+
+    
 
     // Reset count if it's a new day
     if (data.date !== today) {
@@ -58,12 +60,14 @@ async function handleSessionCompletion() {
  */
 async function achieveSession() {
     await chrome.storage.local.set({ sessionComplete: true });
+    const { sessionCount } = await chrome.storage.local.get("sessionCount");
+
     // Only trigger confetti for natural session completions, not early deactivations
     const { sessionCompleteIndicator } = await chrome.storage.local.get("sessionCompleteIndicator");
     await chrome.storage.local.set({
         sessionCompleteIndicator: !sessionCompleteIndicator,
         naturalCompletion: true,
-        focusMode: false
+        focusMode: false,
     });
 }
 
