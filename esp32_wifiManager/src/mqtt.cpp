@@ -139,7 +139,7 @@ void attemptMQTT()
 
 void tryReconnecting_MQTT()
 {
-  if (!client.connected() && count == 1)
+  if (!client.connected())
   {
     unsigned long now = millis();
     statusSent = false;

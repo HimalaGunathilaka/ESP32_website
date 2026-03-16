@@ -81,7 +81,11 @@ export async function fetchDeviceId() {
         if (!response.ok) throw new Error('ESP32 unreachable');
 
         const data = await response.json();
-        console.log('Successfully connected to ESP32:', data.device_id);
+        const { username } = await chrome.storage.local.get("username");
+        if (username !== data.username) {
+            throw new Error("Username is incorrectly set");
+        }
+
         return data.device_id;
     } catch (err) {
         if (err.name === 'AbortError') {
