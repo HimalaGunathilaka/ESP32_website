@@ -1,0 +1,465 @@
+openapi: 3.0.3
+info:
+  title: My API
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8080
+    description: Local dev server
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    OkResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+          example: true
+    ErrorResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Internal server error
+
+  responses:
+    Ok:
+      description: Successful operation
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/OkResponse"
+    Unauthorized:
+      description: Missing or invalid JWT
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+            example:
+              message: Unauthorized
+    InternalError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    BadRequestUrl:
+      description: URL not provided
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+            example:
+              message: url required
+
+
+paths:
+  /:
+    get:
+      summary: Hello from express
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    
+  /add-user:
+    post:
+      summary: Create a new user
+      description: Registers a new user with username, email, and password.
+      tags:
+        - Users
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - username
+                - password
+                - email
+              properties:
+                username:
+                  type: string
+                  example: johndoe
+                password:
+                  type: string
+                  example: mySecret123
+                email:
+                  type: string
+                  format: email
+                  example: john@example.com
+
+      responses:
+        "201":
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: User created successfully
+                  userId:
+                    type: string
+                    example: johndoe
+
+        "400":
+          description: Missing required fields
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Username and password required
+
+        "409":
+          description: User or email already exists
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: User already exists
+
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Internal server error
+
+  /login:
+    post:
+      summary: User login
+      description: Authenticates a user and returns a JWT access token.
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - username
+                - password
+              properties:
+                username:
+                  type: string
+                  example: johndoe
+                password:
+                  type: string
+                  example: mySecret123
+      
+      responses:
+        "200":
+          description: login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accessToken:
+                    type: string
+                    description: JWT access token
+                    example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
+        "400":
+          description: Missing username or password
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Username and password required
+
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Invalid credentials
+
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Internal server error       
+
+  /device/put:
+    post:
+      summary: Register or update device ID for the logged-in user
+      description: Saves a device ID and associates it with the authenticated user.
+      tags:
+        - Device
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - deviceId
+              properties:
+                deviceId:
+                  type: string
+                  example: 98a7b3f1-esp32-abc
+
+      responses:
+        "200":
+          description: Device ID stored successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                    example: true
+
+        "400":
+          description: Missing deviceId
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: deviceId required
+
+        "401":
+          description: Unauthorized (missing or invalid JWT)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Unauthorized
+
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Internal server error
+
+  /device/get:
+    get:
+      summary: Get device ID for logged-in user
+      tags:
+        - Device
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Device ID retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deviceId:
+                    type: string
+                    example: 98a7b3f1-esp32-abc
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /url/add:
+    post:
+      summary: Add a URL to blocked list
+      tags:
+        - URL
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - url
+              properties:
+                url:
+                  type: string
+                  example: "https://example.com"
+      responses:
+        "200":
+          $ref: "#/components/responses/Ok"
+        "400":
+          $ref: "#/components/responses/BadRequestUrl"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /url/remove:
+    post:
+      summary: Remove a URL from blocked list
+      tags:
+        - URL
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - url
+              properties:
+                url:
+                  type: string
+                  example: "https://example.com"
+      responses:
+        "200":
+          $ref: "#/components/responses/Ok"
+        "400":
+          $ref: "#/components/responses/BadRequestUrl"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /url/list:
+    get:
+      summary: List all blocked URLs
+      tags:
+        - URL
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of blocked URLs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  block:
+                    type: array
+                    items:
+                      type: string
+                    example: ["https://example.com", "https://test.com"]
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /session/complete:
+    post:
+      summary: Mark a session as completed
+      tags:
+        - Session
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          $ref: "#/components/responses/Ok"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /time/total:
+    post:
+      summary: Update total time for the user
+      tags:
+        - Time
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          $ref: "#/components/responses/Ok"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /auth/verify:
+    get:
+      summary: Verify JWT token
+      description: Checks if the provided JWT is valid and returns the user ID.
+      tags:
+        - Authentication
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Token is valid
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                    example: true
+                  userId:
+                    type: string
+                    example: johndoe
+        "401":
+          description: No token or expired token
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Token expired
+        "403":
+          description: Invalid token
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Invalid token

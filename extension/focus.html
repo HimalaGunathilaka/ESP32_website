@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -11,39 +12,62 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0d6b31 0%, #3c9158 100%);
+            font-family: 'Inter', system-ui, sans-serif;
         }
-        .container {
+
+        /* The card */
+        .card {
+            background: linear-gradient(135deg, #44e9bf 0%, #28f58f 100%);
+
+            box-shadow: 0 4px 15px rgba(39, 99, 47, 0.4);
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+            /* slight transparency */
+            backdrop-filter: blur(10px);
+            /* nice frosted effect */
+            padding: 40px 60px;
+            border-radius: 20px;
             text-align: center;
             color: white;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+            max-width: 400px;
+            width: 90%;
         }
-        h1 {
-            font-size: 3em;
-            margin: 0;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
-        }
-        .emoji {
+
+        .card .emoji {
             font-size: 4em;
             margin-bottom: 20px;
         }
-        p {
-            font-size: 1.5em;
+
+        .card h1 {
+            font-size: 2.5em;
+            margin: 0;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .card p {
+            font-size: 1.2em;
             opacity: 0.9;
+            margin-top: 10px;
+        }
+
+        #timer {
+            font-size: 2em;
+            margin-top: 15px;
+            font-weight: bold;
         }
     </style>
 </head>
+
 <body>
-    <div class="container">
+    <div class="card">
         <div class="emoji">🎯</div>
         <h1>Focus Mode Activated!</h1>
-        <p>Stay focused on what matters</p>
+        <!-- <p>Stay focused on what matters</p> -->
         <h2>Focused time:</h2>
-        <div id="timer" style="font-size:2em; margin-top:10px;">00:00:00</div>
+        <div id="timer">00 h:00 min</div>
     </div>
-
-    <script src="focus.js">
-        
-    </script>
+    <script src="focus.js"></script>
 </body>
+
 </html>

@@ -1,2 +1,13 @@
 .venv
 .vscode
+
+server/.env
+
+/mqtt/data
+/mqtt/log
+
+/mosquitto_server/data
+/mosquitto_server/log
+
+
+/server/node_modules
