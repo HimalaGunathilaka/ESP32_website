@@ -365,6 +365,7 @@ async function fetchDeviceId() {
     if (!resp.ok) throw new Error('Network response was not ok');
 
     const data = await resp.json();
+    if(data.username)
     return data.device_id;
   } catch (err) {
     console.error('Could not reach ESP32:', err.message);

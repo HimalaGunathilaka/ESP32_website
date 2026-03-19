@@ -20,7 +20,6 @@
 extern WiFiClient espClient;
 extern PubSubClient client;
 
-extern int count;
 extern int sessionCount;
 extern Preferences prefs;
 
