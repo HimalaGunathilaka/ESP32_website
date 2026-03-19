@@ -1,18 +1,31 @@
+/**
+ * @file led.cpp
+ * @author Himala Gunathilaka
+ * @brief This file is for 8 by 8 led matrix controlling.
+ * @version 0.1
+ * @date 2026-03-17
+ * 
+ * @copyright Copyright (c) 2026
+ * 
+ */
 #include "led.h"
 
-// -------------------------
-// LED Array
-// -------------------------
+/**
+ * @brief LED array
+ * 
+ */
 CRGB leds[NUM_LEDS];
 
-// -------------------------
-// Total time tracking
-// -------------------------
+/**
+ * @brief Total tracked time
+ * 
+ */
 long total_time;
 
-// -------------------------
-// Initialize LED Matrix
-// -------------------------
+/**
+ * @brief Initialize the led matrix
+ * 
+ */
 void initLED() {
   FastLED.addLeds<LED_TYPE, LED_PIN, COLOR_ORDER>(leds, NUM_LEDS);
   FastLED.setBrightness(BRIGHTNESS);
@@ -20,23 +33,29 @@ void initLED() {
   FastLED.show();
 }
 
-// -------------------------
-// Clear all LEDs
-// -------------------------
+/**
+ * @brief Turn off all the leds.
+ * 
+ */
 void clearLED() {
   FastLED.clear();
 }
 
-// -------------------------
-// Show/update LED display
-// -------------------------
+/**
+ * @brief Turn on the selected leds.
+ * 
+ */
 void showLED() {
   FastLED.show();
 }
 
-// -------------------------
-// Map 2D coordinates to 1D index for straight wiring
-// -------------------------
+/**
+ * @brief Map 2D coordinates to 1D index for straight wiring
+ * 
+ * @param x x-axis location
+ * @param y y-axis location
+ * @return int the led number corresponds to the (x,y) location. 
+ */
 int XY(int x, int y) {
   if (x < 0 || x >= MATRIX_WIDTH || y < 0 || y >= MATRIX_HEIGHT) {
     return -1; // Out of bounds
@@ -44,9 +63,13 @@ int XY(int x, int y) {
   return y * MATRIX_WIDTH + x;
 }
 
-// -------------------------
-// Map 2D coordinates to 1D index for serpentine (zig-zag) wiring
-// -------------------------
+/**
+ * @brief Map 2D coordinates to 1D index for serpentine (zig-zag) wiring
+ * 
+ * @param x x-axis location
+ * @param y y-axis location
+ * @return int 
+ */
 int XY_serpentine(int x, int y) {
   if (x < 0 || x >= MATRIX_WIDTH || y < 0 || y >= MATRIX_HEIGHT) {
     return -1; // Out of bounds
@@ -58,9 +81,13 @@ int XY_serpentine(int x, int y) {
   }
 }
 
-// -------------------------
-// Set a single pixel at (x, y) to a color
-// -------------------------
+/**
+ * @brief Set a single pixel at (x, y) to a color
+ * 
+ * @param x x-axis location
+ * @param y y-axis location
+ * @param color colur to be set in that location
+ */
 void setPixel(int x, int y, CRGB color) {
   int index = XY_serpentine(x, y);
   if (index >= 0) {
@@ -68,9 +95,12 @@ void setPixel(int x, int y, CRGB color) {
   }
 }
 
-// -------------------------
-// Set an entire row to a specific color
-// -------------------------
+/**
+ * @brief Set an entire row to a specific color;
+ * 
+ * @param row row number
+ * @param color 
+ */
 void setRow(int row, CRGB color) {
   if (row < 0 || row >= MATRIX_HEIGHT) return;
   
@@ -79,9 +109,12 @@ void setRow(int row, CRGB color) {
   }
 }
 
-// -------------------------
-// Set an entire column to a specific color
-// -------------------------
+/**
+ * @brief Set an entire column to a specific color
+ * 
+ * @param col column number
+ * @param color 
+ */
 void setColumn(int col, CRGB color) {
   if (col < 0 || col >= MATRIX_WIDTH) return;
   
@@ -90,9 +123,11 @@ void setColumn(int col, CRGB color) {
   }
 }
 
-// -------------------------
-// Fill entire matrix with a color
-// -------------------------
+/**
+ * @brief Fill entire matrix with a color
+ * 
+ * @param color 
+ */
 void fillMatrix(CRGB color) {
   for (int i = 0; i < NUM_LEDS; i++) {
     leds[i] = color;

@@ -1,16 +1,22 @@
+/**
+ * @file display.cpp
+ * @author Himala Gunathilaka
+ * @brief 
+ * @version 0.1
+ * @date 2026-03-17
+ * 
+ * @copyright Copyright (c) 2026
+ * 
+ */
 #include "display.h"
 
-// -------------------------
-// Display Pin Configuration
-// -------------------------
+// @brief Display Pin Configuration
 const int clk = 22;   // SCK
 const int latch = 21; // RCK 
 // const int data = 23;  // DIO
 const int data = 25; // Temporarily to use buzzer
 
-// -------------------------
-// 7-segment encoding for digits 0–9, plus blank
-// -------------------------
+// @brief 7-segment encoding for digits 0–9, plus blank
 byte value[] = { 
   B11000000, // 0
   B11111001, // 1
@@ -25,9 +31,7 @@ byte value[] = {
   B11111111  // blank
 };
 
-// -------------------------
-// Segment select bits
-// -------------------------
+// @brief Segment select bits
 byte digit[] = {
   B00000001, // leftmost
   B00000010,
@@ -39,30 +43,32 @@ byte digit[] = {
   B10000000  // rightmost
 }; 
 
-// -------------------------
-// Display State Variables
-// -------------------------
+// @brief Display State Variables
 int numberToDisplay = 0;
 
-// -------------------------
-// Display Initialization
-// -------------------------
+/**
+ * @brief Display initialization
+ * 
+ */
 void displayInit() {
   pinMode(clk, OUTPUT);
   pinMode(latch, OUTPUT);
   pinMode(data, OUTPUT);
 }
 
-// -------------------------
-// Set Number to Display
-// -------------------------
+/**
+ * @brief Set Number to Display
+ * 
+ * @param number 
+ */
 void setDisplayNumber(int number) {
   numberToDisplay = number;
 }
 
-// -------------------------
-// Update Display (call frequently in loop)
-// -------------------------
+/**
+ * @brief Update Display (call frequently in loop)
+ * 
+ */
 void displayUpdate() {
   byte chr;
   

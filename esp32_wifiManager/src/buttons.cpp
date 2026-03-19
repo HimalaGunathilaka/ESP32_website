@@ -1,57 +1,63 @@
-#ifndef BUTTONS_CPP
-#define BUTTONS_CPP
+/**
+ * @file buttons.cpp
+ * @brief Handles button inputs and hardware interrupts for the timer.
+ */
 
 #include <Arduino.h>
-#include "wifi_mgr.h"
 #include <PubSubClient.h>
-
 #include "mqtt.h"
+#include "buttons.h"
+#include "wifi_mgr.h"
 
-// -------------------------
-// Pins
-// -------------------------
+/// @brief Pin connected to the main focus button
 #define BUTTON_FOCUS 18
+
+/// @brief Pin for the indicator LED
 #define LED_INDICATOR 19
+
+/// @brief Onboard LED pin
 #define ONBOARD_LED 2
 
-// --------------------------
-// MQTT - WiFi
-// --------------------------
+// ------------- MQTT - WiFi ---------------
 WiFiClient espClient;
 PubSubClient client(espClient);
-
-// -------------------------
-// Global State
-// -------------------------
-int count = 1;
 
 // Count the number of completed sessions
 int sessionCount = 0;
 
-// ++++++++++++++++++++++++++++++++++++
+/// @brief Current state of the focus mode
 bool focusMode = false;
-// ++++++++++++++++++++++++++++++++++++
 
-// -----------------
+
+/// @brief Tracks the last time the button was successfully pressed for debouncing
 unsigned long lastButtonTime = 0;
+
+/// @brief Minimum time (ms) required between valid button presses
 const unsigned long debounceMs = 300;
+
+/// @brief Flag set by the ISR when the button is physically pressed
 volatile bool buttonFocusPressed = false;
 
-// -------------------------
-// ISR
-// -------------------------
+
+/**
+ * @brief Interrupt Service Routine (ISR) for the focus button.
+ */
 void IRAM_ATTR handleFocusButtonInterrupt()
 {
   buttonFocusPressed = true;
   detachInterrupt(digitalPinToInterrupt(BUTTON_FOCUS));
 }
 
+/**
+ * @brief Processes the focus button press inside the main loop. 
+ */
 void buttonPress_focus()
 {
   if (!buttonFocusPressed)
     return;
 
   unsigned long now = millis();
+
   if (now - lastButtonTime < debounceMs)
     return;
 
@@ -61,13 +67,9 @@ void buttonPress_focus()
   if (!client.connected())
     return;
 
-  Serial.println("Reached here");
-
   // Get username from preferences
   String username = prefs.getString("username", "");
   String topic = username + "/focus/activate";
-
-  Serial.println(username);
 
   // Build payload with session count
   char payload[20];
@@ -84,5 +86,3 @@ void buttonPress_focus()
                   handleFocusButtonInterrupt,
                   RISING);
 }
-
-#endif
