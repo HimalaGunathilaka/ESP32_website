@@ -1,3 +1,13 @@
+/**
+ * @file main.cpp
+ * @author Himala Gunathilaka
+ * @brief 
+ * @version 0.1
+ * @date 2026-03-17
+ * 
+ * @copyright Copyright (c) 2026
+ * 
+ */
 #include "mqtt.h"
 #include "buttons.h"
 #include "wifi_mgr.h"
