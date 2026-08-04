@@ -2,12 +2,10 @@
 This project was for creating a Pomodorro based chromium extension creation. But as part of the project I had create a hardware switch to control the extension as well. The high level architecture of the project is as bellow.
 <img width="476" height="497" alt="image" src="https://github.com/user-attachments/assets/148e8986-dcf2-4575-960e-f2bf3e69e80f" />
 
-The extension UI looks as bellow.
+The extension popup UI looks as bellow. <br>
 <img width="343" height="571" alt="image" src="https://github.com/user-attachments/assets/28c66d6d-e520-4a67-b91c-1e8a81c0db9b" />
 
-As for the hardware switch, I haven't worked on the enclosure yet. But a function-able demo of my current project is shown bellow.
-
-(demo)[https://drive.google.com/file/d/1WPymxkI9dWA7hH-WlM9zqBF2JT2rhrRE/view?usp=sharing]
+As for the hardware switch, I haven't worked on the enclosure yet. But a function-able demo of my current project is shown in [here](https://drive.google.com/file/d/1WPymxkI9dWA7hH-WlM9zqBF2JT2rhrRE/view?usp=sharing).
 
 
 ---
